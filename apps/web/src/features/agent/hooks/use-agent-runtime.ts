@@ -5,7 +5,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   getAgentSnapshot,
   startPickupDemo,
-  stopAgentAction,
+  stopAgentRun,
 } from "../api/client";
 import { subscribeAgentEvents } from "../api/events";
 import {
@@ -79,12 +79,12 @@ export function useAgentRuntime() {
 
   const currentAction = getCurrentAction(state.snapshot);
 
-  const stopCurrentAction = useCallback(async () => {
-    if (!currentAction?.action_id) return;
+  const stopCurrentRun = useCallback(async () => {
+    if (!currentAction?.run_id) return;
     dispatch({ type: "stopping", active: true });
     dispatch({ type: "error", message: null });
     try {
-      await stopAgentAction(currentAction.action_id);
+      await stopAgentRun(currentAction.run_id);
       await refresh();
     } catch (error) {
       dispatch({ type: "error", message: errorMessage(error) });
@@ -99,6 +99,6 @@ export function useAgentRuntime() {
     phase: mapActionPhase(currentAction),
     refresh,
     runPickupDemo,
-    stopCurrentAction,
+    stopCurrentRun,
   };
 }

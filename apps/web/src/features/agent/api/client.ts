@@ -2,9 +2,9 @@ import createClient from "openapi-fetch";
 
 import type { paths } from "./schema";
 import type {
-  AgentAction,
   AgentSnapshot,
   AgentWorldState,
+  RunStopResult,
   WorkflowResult,
 } from "./types";
 
@@ -89,14 +89,14 @@ export async function startPickupDemo(): Promise<WorkflowResult> {
   return data;
 }
 
-export async function stopAgentAction(actionId: string): Promise<AgentAction> {
+export async function stopAgentRun(runId: string): Promise<RunStopResult> {
   const { data, error, response } = await client.POST(
-    "/api/actions/{action_id}/stop",
-    { params: { path: { action_id: actionId } } },
+    "/api/runs/{run_id}/stop",
+    { params: { path: { run_id: runId } } },
   );
 
   if (error || !data) {
-    throw requestError("停止动作", response, error);
+    throw requestError("停止流程", response, error);
   }
   return data;
 }

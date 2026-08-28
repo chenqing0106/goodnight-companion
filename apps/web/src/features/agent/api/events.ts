@@ -14,6 +14,8 @@ const EVENT_TYPES = [
   "action.succeeded",
   "action.failed",
   "action.skipped",
+  "run.stop_requested",
+  "run.stopped",
   "safety.checked",
   "tool.called",
   "device.registry_synced",

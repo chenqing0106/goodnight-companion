@@ -33,14 +33,16 @@ export function AgentFoundationPage() {
     phase,
     refresh,
     runPickupDemo,
-    stopCurrentAction,
+    stopCurrentRun,
   } = useAgentRuntime();
 
   const world = state.snapshot?.world;
   const device = state.snapshot?.devices[0];
-  const canStop =
-    currentAction?.status === "executing" ||
-    currentAction?.status === "waiting_confirmation";
+  const canStop = currentAction
+    ? !["succeeded", "failed", "stopped", "skipped"].some(
+        (status) => status === currentAction.status,
+      )
+    : false;
 
   return (
     <main className={styles.page}>
@@ -153,9 +155,9 @@ export function AgentFoundationPage() {
               className={styles.stopButton}
               type="button"
               disabled={!canStop || state.isStopping}
-              onClick={() => void stopCurrentAction()}
+              onClick={() => void stopCurrentRun()}
             >
-              {state.isStopping ? "正在停止" : "停止当前动作"}
+              {state.isStopping ? "正在停止" : "立即停止"}
             </button>
           </div>
         </section>

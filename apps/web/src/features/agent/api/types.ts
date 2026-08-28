@@ -4,6 +4,7 @@ export type AgentAction = components["schemas"]["Action"];
 export type AgentActionStatus = components["schemas"]["ActionStatus"];
 export type AgentDevice = components["schemas"]["DeviceRecord"];
 export type WorkflowResult = components["schemas"]["WorkflowResult"];
+export type RunStopResult = components["schemas"]["RunStopResult"];
 
 // FastAPI currently exposes /api/state as an open dictionary. Keep the
 // temporary hand-written shape beside the generated contract until the
