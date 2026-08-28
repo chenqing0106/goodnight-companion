@@ -223,13 +223,54 @@ uv run uvicorn goodnight_agent.api.app:app --reload
 
 打开 `/docs` 后可用 `GET /api/devices` 查看在线状态，用 `GET /api/devices/env-s3-01/sensors` 查看最新传感器读数。`GET /api/tools` 会显示 `set_rgb_indicator` 和 `set_led_mode` 的参数范围。
 
-也可以直接检查完整 MQTT 通道。下面的命令会读取状态和传感器，并把本地模拟灯带切到模式 3：
+### 快速查看硬件状态
 
-```bash
-uv run python scripts/check_env_s3_connection.py --led-mode 3
+在项目根目录准备一个不会提交到 Git 的 `.env.hardware`：
+
+```dotenv
+GOODNIGHT_DEVICE_TRANSPORT=env_s3_mqtt
+GOODNIGHT_MQTT_HOST=<Broker 地址>
+GOODNIGHT_MQTT_PORT=<MQTT TCP 端口>
+GOODNIGHT_MQTT_DEVICE_ID=env-s3-01
+GOODNIGHT_MQTT_USERNAME=<从安全配置读取>
+GOODNIGHT_MQTT_PASSWORD=<从安全配置读取>
 ```
 
-连接硬件组公网 Broker 时，只需把 transport 改为 `env_s3_mqtt`，并通过部署环境注入主机、端口、设备 ID、用户名和密码。认证信息不能提交到 Git。
+执行一条命令即可绕过 FastAPI，直接检查 Broker、设备状态和五类传感器：
+
+```bash
+make hardware-status
+```
+
+命令会在收到首条数据后继续收集 3 秒，避免只看到一类传感器。输出中：
+
+- `online` 表示收到设备 retained 上线状态。
+- `offline` 表示 Broker 保存的是设备主动离线或遗嘱状态。
+- `unknown` 表示没有收到状态，或检查程序与 Broker 断开。
+- `有效` 才能使用对应测量值；`无效` 会显示固件返回的原因。
+- `缺失 Topic` 表示等待窗口内没有收到对应传感器消息。
+
+需要保存机器可读结果时执行：
+
+```bash
+uv run --env-file .env.hardware python scripts/check_env_s3_connection.py --json
+```
+
+需要在自动化检查中把离线或传感器缺失视为失败时增加 `--strict`。
+
+执行器测试不是默认行为，只有显式增加参数才会发控制命令。例如将灯带切换到模式 3：
+
+```bash
+uv run --env-file .env.hardware python scripts/check_env_s3_connection.py --led-mode 3
+```
+
+启动使用同一配置的 FastAPI：
+
+```bash
+uv run uvicorn goodnight_agent.api.app:app --reload --env-file .env.hardware
+```
+
+认证信息不能提交到 Git；生产环境应改用部署平台的 Secret。
 
 ## Tool 主链路
 

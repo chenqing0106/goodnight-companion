@@ -1,4 +1,4 @@
-.PHONY: setup test demo api broker broker-down mock-device mqtt-demo
+.PHONY: setup test demo api broker broker-down mock-device mqtt-demo hardware-status
 
 setup:
 	UV_CACHE_DIR=.uv-cache uv sync
@@ -23,3 +23,6 @@ mock-device:
 
 mqtt-demo:
 	UV_CACHE_DIR=.uv-cache uv run python scripts/run_scenario.py success --transport mqtt
+
+hardware-status:
+	@UV_CACHE_DIR=.uv-cache uv run --env-file .env.hardware python scripts/check_env_s3_connection.py
