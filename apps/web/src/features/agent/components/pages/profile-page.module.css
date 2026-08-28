@@ -1,0 +1,160 @@
+.panelCard {
+  margin-bottom: 12px;
+  padding: 16px;
+  border: 1px solid rgba(36, 37, 34, 0.08);
+  border-radius: 22px;
+  background: var(--card);
+}
+
+.listRow {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.listRowCompact {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.listIcon {
+  width: 39px;
+  height: 39px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--ink);
+  background: #e7e2d9;
+}
+
+.listMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.listMain strong,
+.listMain span {
+  display: block;
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sectionLabel h2 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sectionLabel span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.modeControl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 5px;
+  border-radius: 16px;
+  background: #e5e0d7;
+}
+
+.modeButton,
+.modeButtonActive {
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.modeButtonActive {
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: 0 2px 8px rgba(36, 37, 34, 0.08);
+}
+
+.modeCopy {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.privacyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.switch,
+.switchOn {
+  position: relative;
+  width: 46px;
+  height: 27px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: #cac5bb;
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.switchOn {
+  background: var(--safe);
+}
+
+.switch::after,
+.switchOn::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 200ms ease;
+}
+
+.switchOn::after {
+  transform: translateX(19px);
+}
+
+.rowAction {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: #ece7de;
+  cursor: pointer;
+}
+
+.listMain strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.listMain span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}

@@ -1,9 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Goodnight Agent · 场景 1 联调",
-  description: "好梦鸟前端与 Agent 后端的最小联调页面",
+  title: "好梦鸟｜睡眠 Agent",
+  description: "在你入睡后完成安全、可停止的睡前收尾。",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#e9e5dd",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

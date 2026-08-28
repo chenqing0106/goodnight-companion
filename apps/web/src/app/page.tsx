@@ -1,5 +1,5 @@
-import { AgentFoundationPage } from "@/features/agent/components/agent-foundation-page";
+import { GoodnightCompanionApp } from "@/features/agent/components/goodnight-companion-app";
 
 export default function Home() {
-  return <AgentFoundationPage />;
+  return <GoodnightCompanionApp />;
 }

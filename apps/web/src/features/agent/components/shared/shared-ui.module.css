@@ -1,0 +1,70 @@
+.pageIntro {
+  padding: 14px 2px 18px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.06;
+  letter-spacing: -0.055em;
+  font-weight: 900;
+}
+
+.pageSubtitle {
+  max-width: 350px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.emptyCapability {
+  display: grid;
+  justify-items: center;
+  padding: 46px 26px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 36%, transparent);
+  border-radius: 26px;
+  text-align: center;
+  background: color-mix(in srgb, var(--card) 68%, transparent);
+}
+
+.emptyIcon {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  background: #e7e2d9;
+}
+
+.emptyCapability strong {
+  font-size: 15px;
+}
+
+.emptyCapability p {
+  max-width: 310px;
+  margin: 8px 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.pendingLabel {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #e7e2d9;
+  font-size: 9px;
+  font-weight: 800;
+}

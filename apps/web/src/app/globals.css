@@ -1,18 +1,23 @@
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/dm-sans.ttf");
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/noto-sans-sc.ttf");
+}
+
 :root {
-  --paper: #ebe8e1;
-  --paper-deep: #dfdbd2;
-  --surface: #f7f5f0;
-  --ink: #242522;
-  --ink-soft: #444640;
-  --muted: #73766f;
-  --line: #d8d4cb;
-  --line-strong: #bab6ad;
-  --accent: #e95a36;
-  --accent-light: #ff8b68;
-  --success: #4e8066;
-  --danger: #b74234;
-  --font-body: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  --font-utility: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: "DM Sans", "Noto Sans SC", sans-serif;
+  color: #242522;
+  background: #d8d3c9;
 }
 
 * {
@@ -23,17 +28,15 @@
 
 html {
   min-width: 320px;
-  background: var(--paper);
+  min-height: 100%;
+  background: #d8d3c9;
 }
 
 body {
   min-height: 100vh;
-  color: var(--ink);
-  background:
-    linear-gradient(rgba(36, 37, 34, 0.035) 1px, transparent 1px),
-    var(--paper);
-  background-size: 100% 48px;
-  font-family: var(--font-body);
+  color: inherit;
+  background: #d8d3c9;
+  font-family: inherit;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -44,8 +47,6 @@ textarea {
   font: inherit;
 }
 
-button:focus-visible,
-a:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  outline-offset: 3px;
+button {
+  -webkit-tap-highlight-color: transparent;
 }
