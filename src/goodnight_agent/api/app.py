@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.workflow import SimpleWorkflow, WorkflowResult
@@ -78,6 +78,10 @@ def create_app(gateway: DeviceGateway | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     application.state.services = services
+
+    @application.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse(url="/docs")
 
     @application.get("/health")
     async def health() -> dict[str, str]:

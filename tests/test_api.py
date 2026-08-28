@@ -25,10 +25,13 @@ async def test_health_and_debug_observation() -> None:
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
+        root = await client.get("/")
         assert (await client.get("/health")).json() == {"status": "ok"}
         response = await client.post("/api/debug/observations", json=payload)
         state = (await client.get("/api/state")).json()
 
+    assert root.status_code == 307
+    assert root.headers["location"] == "/docs"
     assert response.status_code == 200
     assert [item["status"] for item in response.json()["actions"]] == [
         "succeeded",
