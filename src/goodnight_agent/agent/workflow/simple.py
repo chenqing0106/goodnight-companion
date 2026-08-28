@@ -15,7 +15,6 @@ from goodnight_agent.domain.models import (
     Action,
     ActionStatus,
     Decision,
-    DeviceCommand,
     DeviceCommandStatus,
     DomainEvent,
     Observation,
@@ -25,6 +24,8 @@ from goodnight_agent.domain.models import (
 from goodnight_agent.domain.state_machine import ActionStateMachine
 from goodnight_agent.infrastructure.events import EventPublisher
 from goodnight_agent.infrastructure.repositories import ActionRepository
+from goodnight_agent.tools.executor import ToolExecutor
+from goodnight_agent.tools.registry import ToolError, build_default_tool_registry
 
 
 class WorkflowResult(BaseModel):
@@ -40,6 +41,7 @@ class SimpleWorkflow:
     publisher: EventPublisher
     actions: ActionRepository
     registry: DeviceRegistry | None = None
+    tool_executor: ToolExecutor | None = None
     world_state: WorldState = field(default_factory=WorldState)
     evaluator: SceneEvaluator = field(default_factory=SceneEvaluator)
     permissions: PermissionPolicy = field(default_factory=PermissionPolicy)
@@ -49,6 +51,13 @@ class SimpleWorkflow:
     command_timeout_ms: int = 30_000
     _command_ids: dict[str, str] = field(default_factory=dict, init=False)
     _action_locks: dict[str, asyncio.Lock] = field(default_factory=dict, init=False)
+
+    def __post_init__(self) -> None:
+        if self.tool_executor is None:
+            self.tool_executor = ToolExecutor(
+                registry=build_default_tool_registry(),
+                gateway=self.gateway,
+            )
 
     async def process_observation(self, observation: Observation) -> WorkflowResult:
         run_id = new_id("run")
@@ -106,6 +115,18 @@ class SimpleWorkflow:
     async def _prepare_action(self, action: Action) -> Action:
         action = await self._transition(action, ActionStatus.EVALUATING)
         action = await self._transition(action, ActionStatus.CHECKING)
+
+        executor = self._require_tool_executor()
+        try:
+            executor.validate_action(action)
+        except ToolError as exc:
+            return await self._transition(
+                action,
+                ActionStatus.FAILED,
+                reason=str(exc),
+                error_code="TOOL_VALIDATION_FAILED",
+                event_type="action.failed",
+            )
 
         permission = self.permissions.mode_for(action.capability)
         if permission is PermissionMode.FORBIDDEN:
@@ -176,26 +197,43 @@ class SimpleWorkflow:
             }:
                 return latest
 
+            executor = self._require_tool_executor()
+            command_id = self._command_ids.setdefault(action.action_id, new_id("cmd"))
+            try:
+                tool_call = executor.prepare_call(latest, command_id)
+            except ToolError as exc:
+                return await self._transition(
+                    latest,
+                    ActionStatus.FAILED,
+                    reason=str(exc),
+                    error_code="TOOL_VALIDATION_FAILED",
+                    event_type="action.failed",
+                )
+
             action = await self._transition(
                 latest,
                 ActionStatus.EXECUTING,
                 event_type="action.started",
             )
-            command_id = self._command_ids.setdefault(action.action_id, new_id("cmd"))
-            command = DeviceCommand(
+            definition = executor.registry.require(tool_call.tool_name).definition
+            await self._publish_action(
+                "tool.called",
+                action,
                 command_id=command_id,
-                action_id=action.action_id,
-                device_id=action.device_id,
-                capability=action.capability,
-                parameters=action.parameters,
-                timeout_ms=self.command_timeout_ms,
+                payload={
+                    "tool_call": tool_call.model_dump(mode="json"),
+                    "tool": definition.model_dump(mode="json"),
+                },
             )
             self.world_state.active_action_id = action.action_id
 
             terminal_received = False
             try:
                 async with asyncio.timeout(self.command_timeout_ms / 1000 + 0.25):
-                    async for status in self.gateway.execute(command):
+                    async for status in executor.execute(
+                        tool_call,
+                        timeout_ms=self.command_timeout_ms,
+                    ):
                         await self._publish_action(
                             "action.progress",
                             action,
@@ -293,7 +331,7 @@ class SimpleWorkflow:
         command_id = self._command_ids.get(action_id)
         if command_id is None:
             raise RuntimeError(f"action {action_id} has no device command")
-        await self.gateway.stop(command_id)
+        await self._require_tool_executor().stop(command_id)
         await self._publish_action(
             "action.stop_requested",
             action,
@@ -307,6 +345,11 @@ class SimpleWorkflow:
         if action is None:
             raise LookupError(f"action {action_id} not found")
         return action
+
+    def _require_tool_executor(self) -> ToolExecutor:
+        if self.tool_executor is None:
+            raise RuntimeError("tool executor is not configured")
+        return self.tool_executor
 
     async def _sync_device_registry(self, action: Action) -> None:
         if self.registry is None:

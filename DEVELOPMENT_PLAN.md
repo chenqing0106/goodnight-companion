@@ -285,3 +285,15 @@ skipped
 - [ ] 全局取消整个 Run，当前停止语义是停止单个 Action。
 - [ ] MQTT Broker 断线和重连的自动化集成测试。
 - [ ] 进程重启后的 Action 和命令恢复。
+
+## 14. Tool 层
+
+- [x] 定义 `ToolDefinition`、`ToolCall` 和风险等级。
+- [x] 实现进程内 `ToolRegistry`。
+- [x] 使用 Pydantic Schema 校验工具参数。
+- [x] 实现 `ToolExecutor` 并隔离 DeviceGateway。
+- [x] 工作流通过 ToolExecutor 执行设备能力。
+- [x] 提供 `GET /api/tools` 调试接口。
+- [x] 发布 `tool.called` 领域事件。
+- [ ] 接入 LLM 后只允许模型从 Registry 中选择工具。
+- [ ] 出现跨进程工具发现需求后再评估 MCP Adapter。

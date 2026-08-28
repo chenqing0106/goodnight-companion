@@ -18,6 +18,9 @@ from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegis
 from goodnight_agent.domain.models import Action, DeviceRecord, Observation
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
+from goodnight_agent.tools.executor import ToolExecutor
+from goodnight_agent.tools.models import ToolDefinition
+from goodnight_agent.tools.registry import ToolRegistry, build_default_tool_registry
 
 
 @dataclass
@@ -27,6 +30,7 @@ class AppServices:
     actions: InMemoryActionRepository
     gateway: DeviceGateway
     registry: DeviceRegistry
+    tools: ToolRegistry
 
 
 def build_services(
@@ -44,9 +48,11 @@ def build_services(
         )
     events = InMemoryEventPublisher()
     actions = InMemoryActionRepository()
+    tool_registry = build_default_tool_registry()
     workflow = SimpleWorkflow(
         gateway=actual_gateway,
         registry=actual_registry,
+        tool_executor=ToolExecutor(registry=tool_registry, gateway=actual_gateway),
         publisher=events,
         actions=actions,
         evaluator=SceneEvaluator(device_id=device_id),
@@ -57,6 +63,7 @@ def build_services(
         actions=actions,
         gateway=actual_gateway,
         registry=actual_registry,
+        tools=tool_registry,
     )
 
 
@@ -118,6 +125,10 @@ def create_app(
     @application.get("/api/devices", response_model=list[DeviceRecord])
     async def list_devices() -> list[DeviceRecord]:
         return await services.registry.list_devices()
+
+    @application.get("/api/tools", response_model=list[ToolDefinition])
+    async def list_tools() -> list[ToolDefinition]:
+        return services.tools.list_definitions()
 
     @application.get("/api/actions", response_model=list[Action])
     async def list_actions() -> list[Action]:

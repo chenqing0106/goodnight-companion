@@ -6,6 +6,7 @@ from goodnight_agent.agent.workflow import SimpleWorkflow
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
 from goodnight_agent.domain.models import (
+    Action,
     ActionStatus,
     DeviceAvailability,
     DeviceRecord,
@@ -62,6 +63,7 @@ async def test_sleep_cleanup_happy_path_verifies_real_world_results() -> None:
     assert workflow.world_state.phone_location == "dock"
     assert workflow.world_state.light_on is False
     assert [event.event_type for event in events.events].count("action.succeeded") == 2
+    assert [event.event_type for event in events.events].count("tool.called") == 2
 
 
 @pytest.mark.asyncio
@@ -166,3 +168,21 @@ async def test_registry_blocks_capability_not_advertised_by_device() -> None:
     assert result.actions[0].status is ActionStatus.FAILED
     assert "capability_advertised" in (result.actions[0].reason or "")
     assert result.actions[1].status is ActionStatus.SUCCEEDED
+
+
+@pytest.mark.asyncio
+async def test_unregistered_tool_never_reaches_device_gateway() -> None:
+    gateway = InMemoryDeviceGateway(step_delay=0)
+    workflow, _, actions = build_workflow(gateway)
+    action = Action(
+        run_id="run_test",
+        capability="unregistered_physical_action",
+        device_id="mock-arm",
+    )
+    await actions.save(action)
+
+    result = await workflow._prepare_action(action)
+
+    assert result.status is ActionStatus.FAILED
+    assert result.error_code == "TOOL_VALIDATION_FAILED"
+    assert gateway.execution_count == {}

@@ -26,6 +26,7 @@
 - 安全、权限和状态转换使用确定性代码。
 - LLM 只参与意图理解、故事生成和角色表达。
 - Agent 只调用有限的高层硬件能力，不生成机械臂轨迹。
+- 所有可调用能力先注册为 Tool，并通过参数 Schema 校验。
 - 发出命令不等于执行成功，最终状态必须经过设备反馈和结果验证。
 - 所有物理动作必须可停止，硬件急停不依赖 Agent 或前端在线。
 - Mock 与真实硬件使用相同的 `DeviceGateway` 接口。
@@ -41,6 +42,7 @@
 | 内部异步事件 | `asyncio.Queue` |
 | 硬件协议 | MQTT |
 | 设备实现 | `InMemoryDeviceGateway`、`MqttDeviceGateway` |
+| 工具层 | `ToolRegistry` + `ToolExecutor` |
 | 前端命令 | HTTP |
 | 状态推送 | SSE，封装为可替换 Publisher |
 | 存储 | 内存 Repository，后续可替换 SQLite 或 PostgreSQL |
@@ -61,6 +63,8 @@ Workflow Runtime
         ↓
 Permission + Safety Policy
         ↓
+Tool Registry + Tool Executor
+        ↓
 Device Gateway
         ↓ MQTT
 硬件与传感器
@@ -78,6 +82,7 @@ src/goodnight_agent/
 ├── agent/                # 场景判断、策略、World State、工作流
 ├── devices/              # 内存设备与 MQTT Gateway
 ├── domain/               # 领域模型和行动状态机
+├── tools/                # Tool 定义、注册、参数校验和执行
 └── infrastructure/       # 事件发布与 Repository 接口
 scripts/
 ├── mock_mqtt_device.py   # 独立 MQTT 模拟硬件
@@ -137,6 +142,7 @@ uv run uvicorn goodnight_agent.api.app:app --reload
 - `POST /api/debug/observations` 在开发阶段模拟感知输入。
 - `GET /api/state` 获取当前现实状态。
 - `GET /api/devices` 获取设备在线状态和已声明能力。
+- `GET /api/tools` 查看 Agent 允许调用的工具及其参数 Schema。
 - `GET /api/actions` 或 `GET /api/actions/{id}` 查询动作。
 - `POST /api/actions/{id}/stop` 停止正在执行的单个动作。
 - `GET /api/events` 通过 SSE 接收状态变化。
@@ -183,6 +189,22 @@ goodnight/{device_id}/event
 
 所有设备命令必须携带稳定的 `command_id`。设备收到重复 `command_id` 时返回已有状态，不重复执行物理动作。命令 Topic 不保留旧消息。完整消息示例和行为规则见 [docs/mqtt-contract.md](./docs/mqtt-contract.md)。
 
+## Tool 主链路
+
+场景规则或未来的 LLM 只能提出 ToolCall，不能直接创建 MQTT 命令：
+
+```text
+SceneEvaluator / LLM
+→ ToolCall
+→ ToolRegistry 名称与参数校验
+→ Permission + Safety Policy
+→ ToolExecutor
+→ DeviceGateway
+→ MQTT
+```
+
+当前注册了 `move_phone_to_dock`、`turn_off_light` 和安全控制工具 `stop_all_motion`。完整边界与扩展方式见 [docs/tool-layer.md](./docs/tool-layer.md)。当前不使用 MCP；当工具需要跨进程或供多个 Agent 发现时再增加 MCP Adapter。
+
 当 API 使用 MQTT transport 时，`MqttDeviceGateway` 同时维护 `DeviceRegistry`。每次动作进入安全检查前，Registry 会用 retained `availability` 和 `capabilities` 覆盖调试 Observation 中可能存在的设备状态。设备离线、状态未知或未声明目标能力时，动作不会下发。
 
 ## 当前验证结果
@@ -191,6 +213,7 @@ goodnight/{device_id}/event
 - 内存设备完整场景已通过。
 - Mosquitto + 独立模拟设备 + `MqttDeviceGateway` 的本地端到端场景已通过。
 - DeviceRegistry 会把 MQTT 在线状态和能力同步到 World State 与 Safety Policy。
+- ToolRegistry 会拒绝未注册工具、非法枚举参数和多余参数。
 - 真实硬件协议、认证、心跳、急停和结果感知信号仍待硬件组确认。
 
 ## 暂未实现
