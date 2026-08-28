@@ -49,6 +49,8 @@ async def test_health_and_debug_observation() -> None:
         "move_phone_to_dock",
         "turn_off_light",
         "stop_all_motion",
+        "set_rgb_indicator",
+        "set_led_mode",
     ]
     assert response.status_code == 200
     assert [item["status"] for item in response.json()["actions"]] == [

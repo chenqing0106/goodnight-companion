@@ -11,11 +11,12 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.workflow import RunStopResult, SimpleWorkflow, WorkflowResult
-from goodnight_agent.devices.base import DeviceGateway
+from goodnight_agent.devices.base import DeviceGateway, SensorGateway
+from goodnight_agent.devices.env_s3 import EnvS3MqttGateway
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.mqtt import MqttDeviceGateway
 from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
-from goodnight_agent.domain.models import Action, DeviceRecord, Observation
+from goodnight_agent.domain.models import Action, DeviceRecord, Observation, SensorReading
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
 from goodnight_agent.tools.executor import ToolExecutor
@@ -37,13 +38,17 @@ def build_services(
     gateway: DeviceGateway | None = None,
     registry: DeviceRegistry | None = None,
 ) -> AppServices:
-    device_id = os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "mock-arm")
     actual_gateway = gateway or build_gateway_from_environment()
+    device_id = (
+        actual_gateway.device_id
+        if isinstance(actual_gateway, EnvS3MqttGateway)
+        else os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "mock-arm")
+    )
     actual_registry = registry
     if actual_registry is None:
         actual_registry = (
             actual_gateway
-            if isinstance(actual_gateway, MqttDeviceGateway)
+            if isinstance(actual_gateway, (MqttDeviceGateway, EnvS3MqttGateway))
             else InMemoryDeviceRegistry.with_mock_device(device_id)
         )
     events = InMemoryEventPublisher()
@@ -76,6 +81,14 @@ def build_gateway_from_environment() -> DeviceGateway:
             host=os.getenv("GOODNIGHT_MQTT_HOST", "127.0.0.1"),
             port=int(os.getenv("GOODNIGHT_MQTT_PORT", "1883")),
             base_topic=os.getenv("GOODNIGHT_MQTT_BASE_TOPIC", "goodnight"),
+            username=os.getenv("GOODNIGHT_MQTT_USERNAME"),
+            password=os.getenv("GOODNIGHT_MQTT_PASSWORD"),
+        )
+    if transport in {"env_s3_mqtt", "env-s3-mqtt"}:
+        return EnvS3MqttGateway(
+            host=os.getenv("GOODNIGHT_MQTT_HOST", "218.11.5.249"),
+            port=int(os.getenv("GOODNIGHT_MQTT_PORT", "10317")),
+            device_id=os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "env-s3-01"),
             username=os.getenv("GOODNIGHT_MQTT_USERNAME"),
             password=os.getenv("GOODNIGHT_MQTT_PASSWORD"),
         )
@@ -125,6 +138,17 @@ def create_app(
     @application.get("/api/devices", response_model=list[DeviceRecord])
     async def list_devices() -> list[DeviceRecord]:
         return await services.registry.list_devices()
+
+    @application.get(
+        "/api/devices/{device_id}/sensors",
+        response_model=list[SensorReading],
+    )
+    async def list_sensor_readings(device_id: str) -> list[SensorReading]:
+        if not isinstance(services.gateway, SensorGateway):
+            raise HTTPException(status_code=404, detail="device has no sensor data source")
+        if await services.registry.get_device(device_id) is None:
+            raise HTTPException(status_code=404, detail="device not found")
+        return await services.gateway.list_sensor_readings(device_id)
 
     @application.get("/api/tools", response_model=list[ToolDefinition])
     async def list_tools() -> list[ToolDefinition]:

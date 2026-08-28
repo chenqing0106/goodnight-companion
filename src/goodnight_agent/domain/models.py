@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -116,6 +116,25 @@ class DeviceRecord(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     capabilities_known: bool = False
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class SensorReading(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    device_id: str
+    sensor: Literal["temp", "humidity", "light", "heart_rate", "spo2"]
+    value: float
+    unit: str
+    valid: bool
+    ts_ms: int = Field(ge=0)
+    error: str | None = None
+    received_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def require_error_for_invalid_reading(self) -> SensorReading:
+        if not self.valid and not self.error:
+            raise ValueError("invalid sensor readings require an error reason")
+        return self
 
 
 class DomainEvent(BaseModel):

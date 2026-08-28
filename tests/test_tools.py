@@ -19,6 +19,8 @@ def test_default_tool_registry_exposes_high_level_device_tools() -> None:
         "move_phone_to_dock",
         "turn_off_light",
         "stop_all_motion",
+        "set_rgb_indicator",
+        "set_led_mode",
     ]
     assert definitions[0].input_schema["properties"]["speed_profile"]["default"] == ("night_slow")
 
@@ -27,6 +29,8 @@ def test_tool_registry_validates_and_normalizes_arguments() -> None:
     registry = build_default_tool_registry()
 
     assert registry.validate_arguments("move_phone_to_dock", {}) == {"speed_profile": "night_slow"}
+    assert registry.validate_arguments("set_rgb_indicator", {"mode": 2}) == {"mode": 2}
+    assert registry.validate_arguments("set_led_mode", {"mode": 7}) == {"mode": 7}
 
     with pytest.raises(ToolArgumentsError):
         registry.validate_arguments(
@@ -37,6 +41,10 @@ def test_tool_registry_validates_and_normalizes_arguments() -> None:
         registry.validate_arguments("turn_off_light", {"unexpected": True})
     with pytest.raises(ToolNotFoundError):
         registry.validate_arguments("unknown_tool", {})
+    with pytest.raises(ToolArgumentsError):
+        registry.validate_arguments("set_rgb_indicator", {"mode": 4})
+    with pytest.raises(ToolArgumentsError):
+        registry.validate_arguments("set_led_mode", {"mode": "3"})
 
 
 @pytest.mark.asyncio

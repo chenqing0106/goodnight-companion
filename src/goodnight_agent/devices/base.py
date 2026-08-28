@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
-from goodnight_agent.domain.models import DeviceCommand, DeviceStatus
+from goodnight_agent.domain.models import DeviceCommand, DeviceStatus, SensorReading
 
 
 class DeviceGateway(Protocol):
@@ -11,3 +11,8 @@ class DeviceGateway(Protocol):
     async def get_status(self, command_id: str) -> DeviceStatus | None: ...
     async def stop(self, command_id: str) -> None: ...
     async def close(self) -> None: ...
+
+
+@runtime_checkable
+class SensorGateway(Protocol):
+    async def list_sensor_readings(self, device_id: str) -> list[SensorReading]: ...

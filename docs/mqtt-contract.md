@@ -1,5 +1,7 @@
 # Goodnight Agent MQTT Mock 契约
 
+> 本文只描述机械臂 Mock 使用的通用协议，不是 ENV-SENSING-S3 固件协议。ENV-S3 由独立适配器接入，两套 Topic 不兼容。
+
 这份契约用于当前 Agent、独立模拟设备和后续真实硬件并行开发。它是可运行的 V0 草案，不代表认证、设备证书、真实传感器和硬件急停方案已经确认。
 
 ## Topic

@@ -300,7 +300,11 @@ class SimpleWorkflow:
                         if isinstance(result_facts, dict):
                             self.world_state.apply_result_facts(result_facts)
                         action = await self._transition(action, ActionStatus.VERIFYING)
-                        verification = self.verifier.verify(action, self.world_state)
+                        verification = self.verifier.verify(
+                            action,
+                            self.world_state,
+                            status.result,
+                        )
                         if verification.verified:
                             return await self._transition(
                                 action,

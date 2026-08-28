@@ -41,7 +41,7 @@
 | 编排 | `SimpleWorkflow` 显式状态机 |
 | 内部异步事件 | `asyncio.Queue` |
 | 硬件协议 | MQTT |
-| 设备实现 | `InMemoryDeviceGateway`、`MqttDeviceGateway` |
+| 设备实现 | 内存设备、通用 Mock MQTT、ENV-S3 MQTT 适配器 |
 | 工具层 | `ToolRegistry` + `ToolExecutor` |
 | 前端命令 | HTTP |
 | 状态推送 | SSE，封装为可替换 Publisher |
@@ -86,6 +86,7 @@ src/goodnight_agent/
 └── infrastructure/       # 事件发布与 Repository 接口
 scripts/
 ├── mock_mqtt_device.py   # 独立 MQTT 模拟硬件
+├── mock_env_s3_device.py # 按真实固件协议运行的 ENV-S3 模拟器
 └── run_scenario.py       # 可直接观察结果的场景脚本
 tests/                    # 核心、设备、工作流和 API 测试
 ```
@@ -190,6 +191,46 @@ goodnight/{device_id}/event
 
 所有设备命令必须携带稳定的 `command_id`。设备收到重复 `command_id` 时返回已有状态，不重复执行物理动作。命令 Topic 不保留旧消息。完整消息示例和行为规则见 [docs/mqtt-contract.md](./docs/mqtt-contract.md)。
 
+这套 Topic 只用于已经跑通的机械臂 Mock，不代表 ENV-S3 固件协议。真实环境感知硬件使用独立的 `EnvS3MqttGateway`，避免两套协议互相污染。
+
+## ENV-S3 硬件联调
+
+ENV-S3 通道订阅设备在线状态、五类传感器和两个执行器回执：
+
+```text
+{device_id}/status
+{device_id}/sensor/#
+{device_id}/actuator/+/state
+```
+
+后端只向 `actuator/rgb/set` 和 `actuator/led/set` 发布单字符命令，并等待相应的 `state` 回执。由于当前固件回执没有 `command_id`，后端会把同一执行器的命令串行处理，避免回执对应错误。
+
+先用本地 Broker 验证适配器：
+
+```bash
+# 终端 1
+docker compose up -d broker
+
+# 终端 2
+uv run python scripts/mock_env_s3_device.py
+
+# 终端 3
+GOODNIGHT_DEVICE_TRANSPORT=env_s3_mqtt \
+GOODNIGHT_MQTT_HOST=127.0.0.1 \
+GOODNIGHT_MQTT_PORT=1883 \
+uv run uvicorn goodnight_agent.api.app:app --reload
+```
+
+打开 `/docs` 后可用 `GET /api/devices` 查看在线状态，用 `GET /api/devices/env-s3-01/sensors` 查看最新传感器读数。`GET /api/tools` 会显示 `set_rgb_indicator` 和 `set_led_mode` 的参数范围。
+
+也可以直接检查完整 MQTT 通道。下面的命令会读取状态和传感器，并把本地模拟灯带切到模式 3：
+
+```bash
+uv run python scripts/check_env_s3_connection.py --led-mode 3
+```
+
+连接硬件组公网 Broker 时，只需把 transport 改为 `env_s3_mqtt`，并通过部署环境注入主机、端口、设备 ID、用户名和密码。认证信息不能提交到 Git。
+
 ## Tool 主链路
 
 场景规则或未来的 LLM 只能提出 ToolCall，不能直接创建 MQTT 命令：
@@ -204,7 +245,7 @@ SceneEvaluator / LLM
 → MQTT
 ```
 
-当前注册了 `move_phone_to_dock`、`turn_off_light` 和安全控制工具 `stop_all_motion`。完整边界与扩展方式见 [docs/tool-layer.md](./docs/tool-layer.md)。当前不使用 MCP；当工具需要跨进程或供多个 Agent 发现时再增加 MCP Adapter。
+当前还注册了 ENV-S3 的 `set_rgb_indicator` 和 `set_led_mode`。完整边界与扩展方式见 [docs/tool-layer.md](./docs/tool-layer.md)。当前不使用 MCP；当工具需要跨进程或供多个 Agent 发现时再增加 MCP Adapter。
 
 当 API 使用 MQTT transport 时，`MqttDeviceGateway` 同时维护 `DeviceRegistry`。每次动作进入安全检查前，Registry 会用 retained `availability` 和 `capabilities` 覆盖调试 Observation 中可能存在的设备状态。设备离线、状态未知或未声明目标能力时，动作不会下发。
 
@@ -215,12 +256,12 @@ SceneEvaluator / LLM
 - Mosquitto + 独立模拟设备 + `MqttDeviceGateway` 的本地端到端场景已通过。
 - DeviceRegistry 会把 MQTT 在线状态和能力同步到 World State 与 Safety Policy。
 - ToolRegistry 会拒绝未注册工具、非法枚举参数和多余参数。
-- 真实硬件协议、认证、心跳、急停和结果感知信号仍待硬件组确认。
+- ENV-S3 的 Topic、认证配置入口、在线状态、传感器解析和灯光回执已适配；公网账号仍需由项目负责人单独提供后再实机联调。
 
 ## 暂未实现
 
-- 真实摄像头或传感器感知。
-- 真实硬件控制和硬件级急停。
+- 将 ENV-S3 原始传感器读数转换为睡眠场景判断。
+- 机械臂真实硬件控制和硬件级急停。
 - 数据持久化和进程重启恢复。
 - LLM、LangGraph、多 Agent 和长期记忆。
 

@@ -30,6 +30,8 @@ DeviceGateway → MQTT
 | `move_phone_to_dock` | `physical_low` | `speed_profile` | 将手机移动到固定收纳位置 |
 | `turn_off_light` | `physical_low` | 无 | 关闭已确认可控的灯光 |
 | `stop_all_motion` | `safety_control` | `target_command_id` | 停止目标设备命令 |
+| `set_rgb_indicator` | `physical_low` | `mode: 0..3` | 设置 ENV-S3 三色指示灯 |
+| `set_led_mode` | `physical_low` | `mode: 0..7` | 设置 ENV-S3 WS2812B 灯带模式 |
 
 可以通过 `GET /api/tools` 获取机器可读的 JSON Schema。
 
@@ -48,6 +50,8 @@ DeviceGateway → MQTT
 ```
 
 `device_id` 由受信任的场景或后端上下文绑定，不应由 LLM 自由选择。`tool_call_id` 同时作为下游稳定 `command_id`，保证 MQTT 重复投递不会重复执行物理动作。
+
+ENV-S3 固件是一个例外：当前执行器回执不包含 `command_id`。适配器会按执行器串行下发命令，并校验回执中的 `command`，但跨进程并发和超时后的精确幂等仍需要固件增加命令 ID 才能彻底解决。
 
 ## 增加新工具
 

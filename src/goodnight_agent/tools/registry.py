@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from goodnight_agent.tools.models import ToolDefinition, ToolRiskLevel
 
@@ -34,6 +34,18 @@ class StopAllMotionParameters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     target_command_id: str
+
+
+class SetRgbIndicatorParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Annotated[int, Field(strict=True, ge=0, le=3)]
+
+
+class SetLedModeParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Annotated[int, Field(strict=True, ge=0, le=7)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,5 +116,17 @@ def build_default_tool_registry() -> ToolRegistry:
         description="停止指定设备命令对应的所有运动",
         risk_level=ToolRiskLevel.SAFETY_CONTROL,
         parameters_model=StopAllMotionParameters,
+    )
+    registry.register(
+        name="set_rgb_indicator",
+        description="设置 ENV-S3 三色指示灯，0 熄灭、1 红色、2 绿色、3 蓝色",
+        risk_level=ToolRiskLevel.PHYSICAL_LOW,
+        parameters_model=SetRgbIndicatorParameters,
+    )
+    registry.register(
+        name="set_led_mode",
+        description="设置 ENV-S3 灯带模式，取值 0 到 7，0 表示熄灭",
+        risk_level=ToolRiskLevel.PHYSICAL_LOW,
+        parameters_model=SetLedModeParameters,
     )
     return registry

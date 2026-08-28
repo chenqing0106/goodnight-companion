@@ -16,6 +16,8 @@ class PermissionPolicy:
             "block_phone_screen": PermissionMode.ASK,
             "play_story": PermissionMode.ASK,
             "swing_toy": PermissionMode.ASK,
+            "set_rgb_indicator": PermissionMode.AUTOMATIC,
+            "set_led_mode": PermissionMode.AUTOMATIC,
             "pull_blanket": PermissionMode.FORBIDDEN,
         }
     )
