@@ -5,6 +5,7 @@ import type {
   AgentSnapshot,
   AgentWorldState,
   RunStopResult,
+  SensorReading,
   WorkflowResult,
 } from "./types";
 
@@ -24,6 +25,49 @@ function isWorldState(value: unknown): value is AgentWorldState {
     typeof state.phone_location === "string" &&
     typeof state.sleep_window === "boolean"
   );
+}
+
+const SENSOR_NAMES = new Set([
+  "temp",
+  "humidity",
+  "light",
+  "heart_rate",
+  "spo2",
+]);
+
+function isSensorReading(value: unknown): value is SensorReading {
+  if (!value || typeof value !== "object") return false;
+  const reading = value as Record<string, unknown>;
+  return (
+    typeof reading.device_id === "string" &&
+    typeof reading.sensor === "string" &&
+    SENSOR_NAMES.has(reading.sensor) &&
+    typeof reading.value === "number" &&
+    typeof reading.unit === "string" &&
+    typeof reading.valid === "boolean" &&
+    typeof reading.ts_ms === "number" &&
+    (typeof reading.error === "string" || reading.error === null) &&
+    typeof reading.received_at === "string"
+  );
+}
+
+export async function getSensorReadings(
+  deviceId: string,
+  signal?: AbortSignal,
+): Promise<SensorReading[]> {
+  const response = await fetch(
+    `/api/devices/${encodeURIComponent(deviceId)}/sensors`,
+    { cache: "no-store", signal },
+  );
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw requestError("读取传感器状态", response, payload);
+  }
+  if (!Array.isArray(payload) || !payload.every(isSensorReading)) {
+    throw new Error("传感器响应格式不正确");
+  }
+  return payload;
 }
 
 export async function getAgentSnapshot(): Promise<AgentSnapshot> {

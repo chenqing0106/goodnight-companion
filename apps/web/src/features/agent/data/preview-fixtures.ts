@@ -1,4 +1,4 @@
-import type { AgentDevice } from "../api/types";
+import type { AgentDevice, SensorReading } from "../api/types";
 import type {
   MemoryItem,
   ProactivityMode,
@@ -77,3 +77,22 @@ export const PROACTIVITY_COPY: Record<ProactivityMode, string> = {
   平衡: "重要场景先询问，安全的睡后收尾可自动执行。",
   积极: "在更多场景主动提醒，但仍会先征得同意。",
 };
+
+export function createPreviewSensorReadings(): SensorReading[] {
+  const receivedAt = new Date().toISOString();
+  const common = {
+    device_id: "env-s3-01",
+    valid: true,
+    error: null,
+    ts_ms: 185400,
+    received_at: receivedAt,
+  } as const;
+
+  return [
+    { ...common, sensor: "temp", value: 24, unit: "C" },
+    { ...common, sensor: "humidity", value: 56, unit: "%RH" },
+    { ...common, sensor: "light", value: 738, unit: "adc_count" },
+    { ...common, sensor: "heart_rate", value: 68, unit: "bpm" },
+    { ...common, sensor: "spo2", value: 98, unit: "%" },
+  ];
+}

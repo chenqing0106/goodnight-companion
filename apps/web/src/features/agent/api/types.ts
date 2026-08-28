@@ -6,6 +6,26 @@ export type AgentDevice = components["schemas"]["DeviceRecord"];
 export type WorkflowResult = components["schemas"]["WorkflowResult"];
 export type RunStopResult = components["schemas"]["RunStopResult"];
 
+export type SensorName =
+  | "temp"
+  | "humidity"
+  | "light"
+  | "heart_rate"
+  | "spo2";
+
+// This endpoint exists in the backend but is not present in the checked-in
+// generated OpenAPI declaration yet.
+export interface SensorReading {
+  device_id: string;
+  sensor: SensorName;
+  value: number;
+  unit: string;
+  valid: boolean;
+  ts_ms: number;
+  error: string | null;
+  received_at: string;
+}
+
 // FastAPI currently exposes /api/state as an open dictionary. Keep the
 // temporary hand-written shape beside the generated contract until the
 // backend publishes WorldState as an explicit response model.

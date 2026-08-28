@@ -9,6 +9,10 @@ interface CompanionConfig {
     memory: CompanionDataMode;
     profile: CompanionDataMode;
   };
+  sensors: {
+    deviceId: string;
+    pollIntervalMs: number;
+  };
   preview: {
     actionStatus: AgentActionStatus | null;
     progress: number | null;
@@ -25,6 +29,10 @@ export const COMPANION_CONFIG: CompanionConfig = {
     devices: "preview",
     memory: "preview",
     profile: "preview",
+  },
+  sensors: {
+    deviceId: "env-s3-01",
+    pollIntervalMs: 1000,
   },
   preview: {
     actionStatus: "succeeded",

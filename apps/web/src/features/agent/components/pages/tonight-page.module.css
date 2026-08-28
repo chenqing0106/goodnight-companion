@@ -124,6 +124,118 @@
   transform: rotate(-18deg) translate(-3px, 4px);
 }
 
+.sensorPanel {
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid rgba(36, 37, 34, 0.08);
+  border-radius: 24px;
+  background: rgba(248, 246, 241, 0.72);
+}
+
+.sensorHeader,
+.sensorItemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sensorKicker {
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sensorHeader h2 {
+  margin: 3px 0 0;
+  font-size: 14px;
+  letter-spacing: -0.025em;
+}
+
+.sensorSummary {
+  padding: 6px 8px;
+  border-radius: 999px;
+  color: var(--safe);
+  background: color-mix(in srgb, var(--safe) 10%, transparent);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.sensorSummaryError {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+.sensorError {
+  margin: 9px 0 0;
+  color: var(--warn);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.sensorGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 13px;
+}
+
+.sensorItem {
+  min-width: 0;
+  padding: 9px 8px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 70%, white);
+}
+
+.sensorItemHead {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.sensorValidity {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--safe);
+}
+
+.sensorValidityInvalid {
+  background: var(--warn);
+}
+
+.sensorValidityWaiting {
+  background: #aaa79f;
+}
+
+.sensorItem strong,
+.sensorItem small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sensorItem strong {
+  margin-top: 7px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.sensorItem small {
+  margin-top: 3px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 7px;
+}
+
+@media (max-width: 390px) {
+  .sensorGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .sectionLabel {
   display: flex;
   align-items: baseline;
