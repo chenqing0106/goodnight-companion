@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from typing import Protocol
+
+from goodnight_agent.domain.models import DeviceCommand, DeviceStatus
+
+
+class DeviceGateway(Protocol):
+    def execute(self, command: DeviceCommand) -> AsyncIterator[DeviceStatus]: ...
+    async def get_status(self, command_id: str) -> DeviceStatus | None: ...
+    async def stop(self, command_id: str) -> None: ...
+    async def close(self) -> None: ...
