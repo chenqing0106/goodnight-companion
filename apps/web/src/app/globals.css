@@ -1,0 +1,51 @@
+:root {
+  --paper: #ebe8e1;
+  --paper-deep: #dfdbd2;
+  --surface: #f7f5f0;
+  --ink: #242522;
+  --ink-soft: #444640;
+  --muted: #73766f;
+  --line: #d8d4cb;
+  --line-strong: #bab6ad;
+  --accent: #e95a36;
+  --accent-light: #ff8b68;
+  --success: #4e8066;
+  --danger: #b74234;
+  --font-body: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --font-utility: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  min-width: 320px;
+  background: var(--paper);
+}
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    linear-gradient(rgba(36, 37, 34, 0.035) 1px, transparent 1px),
+    var(--paper);
+  background-size: 100% 48px;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 3px;
+}

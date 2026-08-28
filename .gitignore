@@ -27,6 +27,7 @@ temp/
 
 # Cache files
 .npm_cache
+.pnpm-store/
 
 # Agent files
 .agent/
