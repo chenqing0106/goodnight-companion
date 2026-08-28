@@ -31,8 +31,10 @@ async def test_health_and_debug_observation() -> None:
         assert (await client.get("/health")).json() == {"status": "ok"}
         devices = (await client.get("/api/devices")).json()
         tools = (await client.get("/api/tools")).json()
+        automation = (await client.get("/api/automation")).json()
         response = await client.post("/api/debug/observations", json=payload)
         state = (await client.get("/api/state")).json()
+        recent = (await client.get("/api/events/recent", params={"limit": 2})).json()
 
     assert root.status_code == 307
     assert root.headers["location"] == "/docs"
@@ -53,6 +55,13 @@ async def test_health_and_debug_observation() -> None:
         "set_led_mode",
     ]
     assert response.status_code == 200
+    assert automation == {
+        "enabled": False,
+        "rule": None,
+        "required_samples": None,
+    }
+    assert len(recent) == 2
+    assert all("event_id" in event for event in recent)
     assert [item["status"] for item in response.json()["actions"]] == [
         "succeeded",
         "succeeded",

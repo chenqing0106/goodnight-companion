@@ -299,3 +299,15 @@ skipped
 - [x] 发布 `tool.called` 领域事件。
 - [ ] 接入 LLM 后只允许模型从 Registry 中选择工具。
 - [ ] 出现跨进程工具发现需求后再评估 MCP Adapter。
+
+## 15. ENV-S3 传感器自动控制
+
+- [x] MQTT 传感器更新可作为后端异步事件源。
+- [x] 连续样本、数据新鲜度和配对窗口检查。
+- [x] 生理信号采集状态驱动 RGB 指示灯。
+- [x] 自动控制默认关闭，可通过部署配置显式开启。
+- [x] 自动动作复用 Workflow、Safety、Tool 和 ResultVerifier。
+- [x] `GET /api/events/recent` 恢复最近事件时间线。
+- [x] SSE 提供 `event_id` 用于前端去重。
+- [ ] 与 Next.js 前端完成传感器卡片和 Agent 时间线联调。
+- [ ] 完成真机有效信号和移开手指两个方向的闭环验收。

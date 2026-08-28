@@ -61,6 +61,10 @@ class EnvS3MqttGateway:
     _sensor_event: asyncio.Event = field(default_factory=asyncio.Event, init=False)
     _device: DeviceRecord = field(init=False)
     _readings: dict[str, SensorReading] = field(default_factory=dict, init=False)
+    _sensor_subscribers: set[asyncio.Queue[SensorReading]] = field(
+        default_factory=set,
+        init=False,
+    )
     _actuator_states: dict[str, dict[str, Any]] = field(default_factory=dict, init=False)
     _actuator_locks: dict[str, asyncio.Lock] = field(default_factory=dict, init=False)
     _pending: dict[str, _PendingCommand] = field(default_factory=dict, init=False)
@@ -190,6 +194,10 @@ class EnvS3MqttGateway:
     def _store_reading(self, reading: SensorReading) -> None:
         self._readings[reading.sensor] = reading
         self._sensor_event.set()
+        for queue in tuple(self._sensor_subscribers):
+            if queue.full():
+                queue.get_nowait()
+            queue.put_nowait(reading)
 
     def _route_actuator_state(self, actuator: str, payload: dict[str, Any]) -> None:
         accepted = payload.get("accepted")
@@ -214,6 +222,11 @@ class EnvS3MqttGateway:
                 message="执行器已切换为关闭模式",
             )
         elif accepted:
+            facts = (
+                {"rgb_indicator_mode": acknowledged_command}
+                if actuator == "rgb"
+                else {}
+            )
             status = DeviceStatus(
                 command_id=pending.command.command_id,
                 device_id=self.device_id,
@@ -223,6 +236,7 @@ class EnvS3MqttGateway:
                     "actuator": actuator,
                     "command": acknowledged_command,
                     "state": payload.get("state"),
+                    "facts": facts,
                 },
             )
         else:
@@ -317,6 +331,21 @@ class EnvS3MqttGateway:
             except TimeoutError:
                 pass
         return list(self._readings.values())
+
+    async def subscribe_sensor_readings(
+        self,
+        device_id: str,
+    ) -> AsyncIterator[SensorReading]:
+        if device_id != self.device_id:
+            return
+        await self.connect()
+        queue: asyncio.Queue[SensorReading] = asyncio.Queue(maxsize=100)
+        self._sensor_subscribers.add(queue)
+        try:
+            while True:
+                yield await queue.get()
+        finally:
+            self._sensor_subscribers.discard(queue)
 
     async def stop(self, command_id: str) -> None:
         command = self._commands.get(command_id)

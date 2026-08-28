@@ -1,22 +1,30 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
+from goodnight_agent.agent.sensor_automation import VitalsSignalAutomation
 from goodnight_agent.agent.workflow import RunStopResult, SimpleWorkflow, WorkflowResult
-from goodnight_agent.devices.base import DeviceGateway, SensorGateway
+from goodnight_agent.devices.base import DeviceGateway, SensorEventSource, SensorGateway
 from goodnight_agent.devices.env_s3 import EnvS3MqttGateway
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.mqtt import MqttDeviceGateway
 from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
-from goodnight_agent.domain.models import Action, DeviceRecord, Observation, SensorReading
+from goodnight_agent.domain.models import (
+    Action,
+    DeviceRecord,
+    DomainEvent,
+    Observation,
+    SensorReading,
+)
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
 from goodnight_agent.tools.executor import ToolExecutor
@@ -32,6 +40,7 @@ class AppServices:
     gateway: DeviceGateway
     registry: DeviceRegistry
     tools: ToolRegistry
+    sensor_automation: VitalsSignalAutomation | None = None
 
 
 def build_services(
@@ -62,6 +71,19 @@ def build_services(
         actions=actions,
         evaluator=SceneEvaluator(device_id=device_id),
     )
+    sensor_automation = None
+    if isinstance(actual_gateway, SensorEventSource) and _environment_flag(
+        "GOODNIGHT_SENSOR_AUTOMATION_ENABLED"
+    ):
+        sensor_automation = VitalsSignalAutomation(
+            source=actual_gateway,
+            workflow=workflow,
+            publisher=events,
+            device_id=device_id,
+            required_samples=int(os.getenv("GOODNIGHT_VITALS_REQUIRED_SAMPLES", "3")),
+            freshness_seconds=float(os.getenv("GOODNIGHT_SENSOR_FRESHNESS_SECONDS", "5")),
+            cooldown_seconds=float(os.getenv("GOODNIGHT_AUTOMATION_COOLDOWN_SECONDS", "10")),
+        )
     return AppServices(
         workflow=workflow,
         events=events,
@@ -69,7 +91,15 @@ def build_services(
         gateway=actual_gateway,
         registry=actual_registry,
         tools=tool_registry,
+        sensor_automation=sensor_automation,
     )
+
+
+def _environment_flag(name: str, *, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def build_gateway_from_environment() -> DeviceGateway:
@@ -104,9 +134,16 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.services = services
+        automation_task: asyncio.Task[None] | None = None
+        if services.sensor_automation is not None:
+            automation_task = asyncio.create_task(services.sensor_automation.run())
         try:
             yield
         finally:
+            if automation_task is not None:
+                automation_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await automation_task
             await services.gateway.close()
             if services.registry is not services.gateway:
                 await services.registry.close()
@@ -154,6 +191,15 @@ def create_app(
     async def list_tools() -> list[ToolDefinition]:
         return services.tools.list_definitions()
 
+    @application.get("/api/automation")
+    async def get_automation_status() -> dict[str, object]:
+        automation = services.sensor_automation
+        return {
+            "enabled": automation is not None,
+            "rule": "vitals_signal_indicator" if automation is not None else None,
+            "required_samples": automation.required_samples if automation is not None else None,
+        }
+
     @application.get("/api/actions", response_model=list[Action])
     async def list_actions() -> list[Action]:
         return await services.actions.list()
@@ -198,13 +244,20 @@ def create_app(
                 if await request.is_disconnected():
                     return
                 body = json.dumps(event.model_dump(mode="json"), ensure_ascii=False)
-                yield f"event: {event.event_type}\ndata: {body}\n\n"
+                yield f"id: {event.event_id}\nevent: {event.event_type}\ndata: {body}\n\n"
 
         return StreamingResponse(
             generate(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @application.get("/api/events/recent", response_model=list[DomainEvent])
+    async def recent_events(
+        limit: int = Query(default=100, ge=1, le=500),
+        run_id: str | None = None,
+    ) -> list[DomainEvent]:
+        return services.events.recent(limit=limit, run_id=run_id)
 
     return application
 

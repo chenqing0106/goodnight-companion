@@ -76,8 +76,13 @@ class SimpleWorkflow:
                 gateway=self.gateway,
             )
 
-    async def process_observation(self, observation: Observation) -> WorkflowResult:
-        run_id = new_id("run")
+    async def process_observation(
+        self,
+        observation: Observation,
+        *,
+        run_id: str | None = None,
+    ) -> WorkflowResult:
+        run_id = run_id or new_id("run")
         self.world_state.apply_observation(observation)
         await self._publish(
             "observation.updated",

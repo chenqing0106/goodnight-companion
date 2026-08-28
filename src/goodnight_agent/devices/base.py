@@ -16,3 +16,8 @@ class DeviceGateway(Protocol):
 @runtime_checkable
 class SensorGateway(Protocol):
     async def list_sensor_readings(self, device_id: str) -> list[SensorReading]: ...
+
+
+@runtime_checkable
+class SensorEventSource(Protocol):
+    def subscribe_sensor_readings(self, device_id: str) -> AsyncIterator[SensorReading]: ...

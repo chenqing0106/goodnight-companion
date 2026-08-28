@@ -12,6 +12,10 @@ class SceneEvaluator:
     device_id: str = "mock-arm"
 
     def evaluate(self, state: WorldState) -> Decision | None:
+        vitals_decision = self._evaluate_vitals_indicator(state)
+        if vitals_decision is not None:
+            return vitals_decision
+
         asleep = (
             state.person_in_bed is True
             and state.person_motion == "still"
@@ -52,4 +56,32 @@ class SceneEvaluator:
             confidence=0.9,
             confirmation="automatic",
             proposed_actions=actions,
+        )
+
+    def _evaluate_vitals_indicator(self, state: WorldState) -> Decision | None:
+        desired_mode = {
+            "stable": 2,
+            "finger_not_detected": 0,
+        }.get(state.vitals_signal_state)
+        if desired_mode is None:
+            return None
+        if state.rgb_indicator_mode == desired_mode:
+            return None
+        return Decision(
+            scene="vitals_signal_indicator",
+            should_intervene=True,
+            reason=(
+                "心率和血氧信号已稳定采集"
+                if desired_mode == 2
+                else "连续未检测到手指"
+            ),
+            confidence=1,
+            confirmation="automatic",
+            proposed_actions=[
+                ActionRequest(
+                    capability="set_rgb_indicator",
+                    device_id=self.device_id,
+                    parameters={"mode": desired_mode},
+                )
+            ],
         )

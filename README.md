@@ -143,11 +143,14 @@ uv run uvicorn goodnight_agent.api.app:app --reload
 - `POST /api/debug/observations` 在开发阶段模拟感知输入。
 - `GET /api/state` 获取当前现实状态。
 - `GET /api/devices` 获取设备在线状态和已声明能力。
+- `GET /api/devices/{id}/sensors` 获取 ENV-S3 最新传感器读数。
 - `GET /api/tools` 查看 Agent 允许调用的工具及其参数 Schema。
+- `GET /api/automation` 查看传感器自动控制是否启用。
 - `GET /api/actions` 或 `GET /api/actions/{id}` 查询动作。
 - `POST /api/actions/{id}/stop` 停止正在执行的单个动作。
 - `POST /api/runs/{id}/stop` 停止整个流程，并跳过尚未执行的后续动作。
 - `GET /api/events` 通过 SSE 接收状态变化。
+- `GET /api/events/recent` 在刷新后恢复最近的 Agent 事件时间线。
 
 ## 验证真实 MQTT 通道
 
@@ -271,6 +274,35 @@ uv run uvicorn goodnight_agent.api.app:app --reload --env-file .env.hardware
 ```
 
 认证信息不能提交到 Git；生产环境应改用部署平台的 Secret。
+
+### 传感器自动控制
+
+自动控制默认关闭。确认真机状态和 RGB 指示灯安全后，在 `.env.hardware` 中显式开启：
+
+```dotenv
+GOODNIGHT_SENSOR_AUTOMATION_ENABLED=true
+GOODNIGHT_VITALS_REQUIRED_SAMPLES=3
+GOODNIGHT_SENSOR_FRESHNESS_SECONDS=5
+GOODNIGHT_AUTOMATION_COOLDOWN_SECONDS=10
+```
+
+当前第一条确定性规则只表达“采集信号状态”，不作医疗或睡眠判断：
+
+```text
+心率和血氧连续 3 组有效 → RGB 绿色
+心率和血氧连续 3 组 finger_not_detected → RGB 熄灭
+```
+
+每次触发仍然经过 SceneEvaluator、Permission、Safety、ToolRegistry、MQTT 回执和 ResultVerifier。相同目标状态不会重复下发；失败重试受冷却时间限制。设备离线、数据过期或能力不匹配时不会控制硬件。
+
+前端行动时间线使用：
+
+```text
+页面加载：GET /api/events/recent?limit=100
+持续更新：GET /api/events
+```
+
+同一次判断产生的 `condition.satisfied`、`observation.updated`、`decision.created`、`safety.checked`、`tool.called`、`action.progress` 和最终 Action 事件共享同一个 `run_id`。SSE 同时输出 `id: {event_id}`，前端可按 `event_id` 去重。原始高频传感器不进入行动时间线，仍通过 sensors 接口显示。
 
 ## Tool 主链路
 

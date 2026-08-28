@@ -71,6 +71,30 @@ async def test_env_s3_ignores_sensor_payload_with_wrong_unit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_env_s3_sensor_subscriber_receives_new_reading() -> None:
+    gateway = EnvS3MqttGateway()
+    gateway._loop = asyncio.get_running_loop()
+    gateway._connected.set()
+    stream = gateway.subscribe_sensor_readings("env-s3-01")
+    next_reading = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0)
+
+    gateway._on_message(
+        gateway._client,
+        None,
+        _message(
+            "env-s3-01/sensor/spo2",
+            b'{"value":98,"unit":"%","valid":true,"ts_ms":20}',
+        ),
+    )
+    reading = await next_reading
+    await stream.aclose()
+
+    assert reading.sensor == "spo2"
+    assert reading.value == 98
+
+
+@pytest.mark.asyncio
 async def test_env_s3_publishes_plain_text_and_waits_for_matching_ack() -> None:
     gateway = EnvS3MqttGateway()
     gateway._loop = asyncio.get_running_loop()
@@ -117,7 +141,12 @@ async def test_env_s3_publishes_plain_text_and_waits_for_matching_ack() -> None:
     statuses = await collecting
 
     assert statuses[-1].status is DeviceCommandStatus.SUCCEEDED
-    assert statuses[-1].result == {"actuator": "led", "command": 3, "state": "marquee"}
+    assert statuses[-1].result == {
+        "actuator": "led",
+        "command": 3,
+        "state": "marquee",
+        "facts": {},
+    }
 
 
 @pytest.mark.asyncio
