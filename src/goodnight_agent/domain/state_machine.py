@@ -10,7 +10,7 @@ class InvalidTransition(ValueError):
 
 
 ALLOWED_TRANSITIONS: dict[ActionStatus, set[ActionStatus]] = {
-    ActionStatus.PENDING: {ActionStatus.EVALUATING},
+    ActionStatus.PENDING: {ActionStatus.EVALUATING, ActionStatus.SKIPPED},
     ActionStatus.EVALUATING: {ActionStatus.CHECKING, ActionStatus.SKIPPED},
     ActionStatus.CHECKING: {
         ActionStatus.WAITING_CONFIRMATION,

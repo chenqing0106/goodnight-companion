@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +36,20 @@ class WorkflowResult(BaseModel):
     actions: list[Action] = Field(default_factory=list)
 
 
+class RunStopResult(BaseModel):
+    run_id: str
+    status: Literal["stop_requested", "stopped", "completed"]
+    actions: list[Action] = Field(default_factory=list)
+
+
+TERMINAL_ACTION_STATUSES = {
+    ActionStatus.SUCCEEDED,
+    ActionStatus.FAILED,
+    ActionStatus.STOPPED,
+    ActionStatus.SKIPPED,
+}
+
+
 @dataclass
 class SimpleWorkflow:
     gateway: DeviceGateway
@@ -51,6 +66,8 @@ class SimpleWorkflow:
     command_timeout_ms: int = 30_000
     _command_ids: dict[str, str] = field(default_factory=dict, init=False)
     _action_locks: dict[str, asyncio.Lock] = field(default_factory=dict, init=False)
+    _cancelled_runs: set[str] = field(default_factory=set, init=False)
+    _stopped_runs: set[str] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         if self.tool_executor is None:
@@ -103,7 +120,13 @@ class SimpleWorkflow:
 
         completed: list[Action] = []
         for action in created:
-            completed.append(await self._prepare_action(action))
+            latest = await self._require_action(action.action_id)
+            if self._run_is_cancelled(run_id):
+                completed.append(await self._cancel_before_execution(latest))
+            else:
+                completed.append(await self._prepare_action(latest))
+
+        await self._publish_run_stopped_if_complete(run_id)
 
         return WorkflowResult(
             run_id=run_id,
@@ -113,8 +136,16 @@ class SimpleWorkflow:
         )
 
     async def _prepare_action(self, action: Action) -> Action:
+        if self._run_is_cancelled(action.run_id):
+            return await self._cancel_before_execution(action)
+
         action = await self._transition(action, ActionStatus.EVALUATING)
+        if self._run_is_cancelled(action.run_id):
+            return await self._cancel_before_execution(action)
+
         action = await self._transition(action, ActionStatus.CHECKING)
+        if self._run_is_cancelled(action.run_id):
+            return await self._cancel_before_execution(action)
 
         executor = self._require_tool_executor()
         try:
@@ -139,12 +170,18 @@ class SimpleWorkflow:
             return action
 
         await self._sync_device_registry(action)
+        if self._run_is_cancelled(action.run_id):
+            return await self._cancel_before_execution(action)
+
         safety = self.safety.check(action, self.world_state)
         await self._publish_action(
             "safety.checked",
             action,
             payload=safety.model_dump(mode="json"),
         )
+        if self._run_is_cancelled(action.run_id):
+            return await self._cancel_before_execution(action)
+
         if not safety.allowed:
             return await self._transition(
                 action,
@@ -189,13 +226,10 @@ class SimpleWorkflow:
         lock = self._action_locks.setdefault(action.action_id, asyncio.Lock())
         async with lock:
             latest = await self._require_action(action.action_id)
-            if latest.status in {
-                ActionStatus.SUCCEEDED,
-                ActionStatus.FAILED,
-                ActionStatus.STOPPED,
-                ActionStatus.SKIPPED,
-            }:
+            if latest.status in TERMINAL_ACTION_STATUSES:
                 return latest
+            if self._run_is_cancelled(latest.run_id):
+                return await self._cancel_before_execution(latest)
 
             executor = self._require_tool_executor()
             command_id = self._command_ids.setdefault(action.action_id, new_id("cmd"))
@@ -339,6 +373,99 @@ class SimpleWorkflow:
             payload={"requested_by": "user"},
         )
         return action
+
+    async def stop_run(self, run_id: str) -> RunStopResult:
+        run_actions = await self._list_run_actions(run_id)
+        if not run_actions:
+            raise LookupError(f"run {run_id} not found")
+
+        if run_id in self._cancelled_runs:
+            await self._publish_run_stopped_if_complete(run_id)
+            updated = await self._list_run_actions(run_id)
+            return RunStopResult(
+                run_id=run_id,
+                status="stopped" if run_id in self._stopped_runs else "stop_requested",
+                actions=updated,
+            )
+
+        if all(action.status in TERMINAL_ACTION_STATUSES for action in run_actions):
+            return RunStopResult(
+                run_id=run_id,
+                status="completed",
+                actions=run_actions,
+            )
+
+        self._cancelled_runs.add(run_id)
+        await self._publish(
+            "run.stop_requested",
+            run_id=run_id,
+            payload={"requested_by": "user"},
+        )
+
+        for action in run_actions:
+            latest = await self._require_action(action.action_id)
+            if latest.status in {
+                ActionStatus.WAITING_CONFIRMATION,
+                ActionStatus.EXECUTING,
+            }:
+                try:
+                    await self.stop(latest.action_id)
+                except ValueError:
+                    refreshed = await self._require_action(latest.action_id)
+                    if refreshed.status not in TERMINAL_ACTION_STATUSES:
+                        raise
+
+        await self._publish_run_stopped_if_complete(run_id)
+        updated = await self._list_run_actions(run_id)
+        return RunStopResult(
+            run_id=run_id,
+            status="stopped" if run_id in self._stopped_runs else "stop_requested",
+            actions=updated,
+        )
+
+    def _run_is_cancelled(self, run_id: str) -> bool:
+        return run_id in self._cancelled_runs
+
+    async def _cancel_before_execution(self, action: Action) -> Action:
+        latest = await self._require_action(action.action_id)
+        if latest.status in TERMINAL_ACTION_STATUSES:
+            return latest
+        if latest.status is ActionStatus.WAITING_CONFIRMATION:
+            return await self._transition(
+                latest,
+                ActionStatus.STOPPED,
+                reason="用户停止了整个流程",
+                event_type="action.stopped",
+            )
+        if latest.status in {
+            ActionStatus.PENDING,
+            ActionStatus.EVALUATING,
+            ActionStatus.CHECKING,
+        }:
+            return await self._transition(
+                latest,
+                ActionStatus.SKIPPED,
+                reason="流程已被用户停止，后续动作不再执行",
+                event_type="action.skipped",
+            )
+        return latest
+
+    async def _list_run_actions(self, run_id: str) -> list[Action]:
+        return [action for action in await self.actions.list() if action.run_id == run_id]
+
+    async def _publish_run_stopped_if_complete(self, run_id: str) -> None:
+        if run_id not in self._cancelled_runs or run_id in self._stopped_runs:
+            return
+        actions = await self._list_run_actions(run_id)
+        if not actions or any(action.status not in TERMINAL_ACTION_STATUSES for action in actions):
+            return
+
+        self._stopped_runs.add(run_id)
+        await self._publish(
+            "run.stopped",
+            run_id=run_id,
+            payload={"actions": {action.action_id: action.status.value for action in actions}},
+        )
 
     async def _require_action(self, action_id: str) -> Action:
         action = await self.actions.get(action_id)

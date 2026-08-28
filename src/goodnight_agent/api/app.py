@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
-from goodnight_agent.agent.workflow import SimpleWorkflow, WorkflowResult
+from goodnight_agent.agent.workflow import RunStopResult, SimpleWorkflow, WorkflowResult
 from goodnight_agent.devices.base import DeviceGateway
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.mqtt import MqttDeviceGateway
@@ -158,6 +158,13 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except (ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @application.post("/api/runs/{run_id}/stop", response_model=RunStopResult)
+    async def stop_run(run_id: str) -> RunStopResult:
+        try:
+            return await services.workflow.stop_run(run_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @application.get("/api/events")
     async def stream_events(request: Request) -> StreamingResponse:

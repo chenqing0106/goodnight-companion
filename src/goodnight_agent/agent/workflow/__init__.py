@@ -1,3 +1,3 @@
-from goodnight_agent.agent.workflow.simple import SimpleWorkflow, WorkflowResult
+from goodnight_agent.agent.workflow.simple import RunStopResult, SimpleWorkflow, WorkflowResult
 
-__all__ = ["SimpleWorkflow", "WorkflowResult"]
+__all__ = ["RunStopResult", "SimpleWorkflow", "WorkflowResult"]

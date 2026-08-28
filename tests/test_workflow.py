@@ -117,6 +117,45 @@ async def test_user_can_stop_executing_physical_action() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stopping_run_stops_active_action_and_skips_remaining_actions() -> None:
+    gateway = InMemoryDeviceGateway(step_delay=0.1)
+    workflow, events, actions = build_workflow(gateway, timeout_ms=1_000)
+    processing = asyncio.create_task(workflow.process_observation(sleeping_observation()))
+
+    run_id = None
+    for _ in range(100):
+        running = [
+            action for action in await actions.list() if action.status is ActionStatus.EXECUTING
+        ]
+        if running:
+            run_id = running[0].run_id
+            break
+        await asyncio.sleep(0.005)
+    assert run_id is not None
+
+    stop_result = await workflow.stop_run(run_id)
+    repeated_pending_stop = await workflow.stop_run(run_id)
+    result = await processing
+    repeated_stop = await workflow.stop_run(run_id)
+
+    assert stop_result.status == "stop_requested"
+    assert repeated_pending_stop.status == "stop_requested"
+    assert repeated_stop.status == "stopped"
+    assert [action.status for action in result.actions] == [
+        ActionStatus.STOPPED,
+        ActionStatus.SKIPPED,
+    ]
+    assert workflow.world_state.phone_location == "operation_zone"
+    assert workflow.world_state.light_on is True
+    assert len(gateway.execution_count) == 1
+    event_types = [event.event_type for event in events.events]
+    assert event_types.count("run.stop_requested") == 1
+    assert event_types.count("run.stopped") == 1
+    assert event_types.count("action.stop_requested") == 1
+    assert event_types.count("action.skipped") == 1
+
+
+@pytest.mark.asyncio
 async def test_device_timeout_becomes_explicit_failure() -> None:
     gateway = InMemoryDeviceGateway(step_delay=0, timeout_capabilities={"move_phone_to_dock"})
     workflow, _, _ = build_workflow(gateway, timeout_ms=20)

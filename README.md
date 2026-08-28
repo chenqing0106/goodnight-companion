@@ -145,6 +145,7 @@ uv run uvicorn goodnight_agent.api.app:app --reload
 - `GET /api/tools` 查看 Agent 允许调用的工具及其参数 Schema。
 - `GET /api/actions` 或 `GET /api/actions/{id}` 查询动作。
 - `POST /api/actions/{id}/stop` 停止正在执行的单个动作。
+- `POST /api/runs/{id}/stop` 停止整个流程，并跳过尚未执行的后续动作。
 - `GET /api/events` 通过 SSE 接收状态变化。
 
 ## 验证真实 MQTT 通道
@@ -209,7 +210,7 @@ SceneEvaluator / LLM
 
 ## 当前验证结果
 
-- 自动化测试覆盖成功、失败、安全拦截、停止、超时和幂等。
+- 自动化测试覆盖成功、失败、安全拦截、Action 停止、Run 停止、超时和幂等。
 - 内存设备完整场景已通过。
 - Mosquitto + 独立模拟设备 + `MqttDeviceGateway` 的本地端到端场景已通过。
 - DeviceRegistry 会把 MQTT 在线状态和能力同步到 World State 与 Safety Policy。
@@ -221,7 +222,6 @@ SceneEvaluator / LLM
 - 真实摄像头或传感器感知。
 - 真实硬件控制和硬件级急停。
 - 数据持久化和进程重启恢复。
-- 全局停止整个工作流，目前停止接口只针对单个 Action。
 - LLM、LangGraph、多 Agent 和长期记忆。
 
 详细阶段划分和联调前置条件见 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)。
