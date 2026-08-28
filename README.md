@@ -53,7 +53,7 @@
 ```text
 API / Event Ingress
         ↓
-World State
+World State ← Device Registry ← MQTT availability / capabilities
         ↓
 Scene Evaluator
         ↓
@@ -64,7 +64,7 @@ Permission + Safety Policy
 Device Gateway
         ↓ MQTT
 硬件与传感器
-        ↓
+        ↓ status / result
 Result Verifier
         ↓
 Domain Event Publisher
@@ -127,8 +127,7 @@ uv run uvicorn goodnight_agent.api.app:app --reload
     "stable_for_seconds": 960,
     "phone_location": "operation_zone",
     "light_on": true,
-    "sleep_window": true,
-    "device_states": {"mock-arm": "online"}
+    "sleep_window": true
   }
 }
 ```
@@ -137,6 +136,7 @@ uv run uvicorn goodnight_agent.api.app:app --reload
 
 - `POST /api/debug/observations` 在开发阶段模拟感知输入。
 - `GET /api/state` 获取当前现实状态。
+- `GET /api/devices` 获取设备在线状态和已声明能力。
 - `GET /api/actions` 或 `GET /api/actions/{id}` 查询动作。
 - `POST /api/actions/{id}/stop` 停止正在执行的单个动作。
 - `GET /api/events` 通过 SSE 接收状态变化。
@@ -183,11 +183,14 @@ goodnight/{device_id}/event
 
 所有设备命令必须携带稳定的 `command_id`。设备收到重复 `command_id` 时返回已有状态，不重复执行物理动作。命令 Topic 不保留旧消息。完整消息示例和行为规则见 [docs/mqtt-contract.md](./docs/mqtt-contract.md)。
 
+当 API 使用 MQTT transport 时，`MqttDeviceGateway` 同时维护 `DeviceRegistry`。每次动作进入安全检查前，Registry 会用 retained `availability` 和 `capabilities` 覆盖调试 Observation 中可能存在的设备状态。设备离线、状态未知或未声明目标能力时，动作不会下发。
+
 ## 当前验证结果
 
 - 自动化测试覆盖成功、失败、安全拦截、停止、超时和幂等。
 - 内存设备完整场景已通过。
 - Mosquitto + 独立模拟设备 + `MqttDeviceGateway` 的本地端到端场景已通过。
+- DeviceRegistry 会把 MQTT 在线状态和能力同步到 World State 与 Safety Policy。
 - 真实硬件协议、认证、心跳、急停和结果感知信号仍待硬件组确认。
 
 ## 暂未实现

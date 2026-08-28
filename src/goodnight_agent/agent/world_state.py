@@ -5,7 +5,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from goodnight_agent.domain.models import Observation, utc_now
+from goodnight_agent.domain.models import (
+    DeviceAvailability,
+    DeviceRecord,
+    Observation,
+    utc_now,
+)
 
 
 class WorldState(BaseModel):
@@ -19,6 +24,7 @@ class WorldState(BaseModel):
     light_on: bool | None = None
     sleep_window: bool = False
     device_states: dict[str, str] = Field(default_factory=dict)
+    device_capabilities: dict[str, list[str]] = Field(default_factory=dict)
     active_action_id: str | None = None
     last_observation_at: datetime | None = None
     updated_at: datetime = Field(default_factory=utc_now)
@@ -34,3 +40,14 @@ class WorldState(BaseModel):
 
     def apply_result_facts(self, facts: dict[str, Any]) -> None:
         self.apply_observation(Observation(source="device_result", facts=facts))
+
+    def apply_device_record(self, device_id: str, record: DeviceRecord | None) -> None:
+        if record is None:
+            self.device_states[device_id] = DeviceAvailability.UNKNOWN
+            self.device_capabilities[device_id] = []
+        else:
+            self.device_states[device_id] = record.availability
+            self.device_capabilities[device_id] = (
+                list(record.capabilities) if record.capabilities_known else []
+            )
+        self.updated_at = utc_now()

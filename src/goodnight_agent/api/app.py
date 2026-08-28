@@ -14,7 +14,8 @@ from goodnight_agent.agent.workflow import SimpleWorkflow, WorkflowResult
 from goodnight_agent.devices.base import DeviceGateway
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.mqtt import MqttDeviceGateway
-from goodnight_agent.domain.models import Action, Observation
+from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
+from goodnight_agent.domain.models import Action, DeviceRecord, Observation
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
 
@@ -25,23 +26,37 @@ class AppServices:
     events: InMemoryEventPublisher
     actions: InMemoryActionRepository
     gateway: DeviceGateway
+    registry: DeviceRegistry
 
 
-def build_services(gateway: DeviceGateway | None = None) -> AppServices:
+def build_services(
+    gateway: DeviceGateway | None = None,
+    registry: DeviceRegistry | None = None,
+) -> AppServices:
+    device_id = os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "mock-arm")
     actual_gateway = gateway or build_gateway_from_environment()
+    actual_registry = registry
+    if actual_registry is None:
+        actual_registry = (
+            actual_gateway
+            if isinstance(actual_gateway, MqttDeviceGateway)
+            else InMemoryDeviceRegistry.with_mock_device(device_id)
+        )
     events = InMemoryEventPublisher()
     actions = InMemoryActionRepository()
     workflow = SimpleWorkflow(
         gateway=actual_gateway,
+        registry=actual_registry,
         publisher=events,
         actions=actions,
-        evaluator=SceneEvaluator(device_id=os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "mock-arm")),
+        evaluator=SceneEvaluator(device_id=device_id),
     )
     return AppServices(
         workflow=workflow,
         events=events,
         actions=actions,
         gateway=actual_gateway,
+        registry=actual_registry,
     )
 
 
@@ -60,8 +75,11 @@ def build_gateway_from_environment() -> DeviceGateway:
     raise ValueError(f"unsupported GOODNIGHT_DEVICE_TRANSPORT: {transport}")
 
 
-def create_app(gateway: DeviceGateway | None = None) -> FastAPI:
-    services = build_services(gateway)
+def create_app(
+    gateway: DeviceGateway | None = None,
+    registry: DeviceRegistry | None = None,
+) -> FastAPI:
+    services = build_services(gateway, registry)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -70,6 +88,8 @@ def create_app(gateway: DeviceGateway | None = None) -> FastAPI:
             yield
         finally:
             await services.gateway.close()
+            if services.registry is not services.gateway:
+                await services.registry.close()
 
     application = FastAPI(
         title="Goodnight Agent",
@@ -94,6 +114,10 @@ def create_app(gateway: DeviceGateway | None = None) -> FastAPI:
     @application.get("/api/state")
     async def get_state() -> dict[str, object]:
         return services.workflow.world_state.model_dump(mode="json")
+
+    @application.get("/api/devices", response_model=list[DeviceRecord])
+    async def list_devices() -> list[DeviceRecord]:
+        return await services.registry.list_devices()
 
     @application.get("/api/actions", response_model=list[Action])
     async def list_actions() -> list[Action]:

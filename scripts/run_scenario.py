@@ -76,6 +76,7 @@ async def main() -> None:
     actions = InMemoryActionRepository()
     workflow = SimpleWorkflow(
         gateway=gateway,
+        registry=gateway if isinstance(gateway, MqttDeviceGateway) else None,
         publisher=events,
         actions=actions,
         command_timeout_ms=250 if args.scenario == "device-timeout" else 3_000,

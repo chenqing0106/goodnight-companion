@@ -10,6 +10,7 @@ from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.verifier import ResultVerifier
 from goodnight_agent.agent.world_state import WorldState
 from goodnight_agent.devices.base import DeviceGateway
+from goodnight_agent.devices.registry import DeviceRegistry
 from goodnight_agent.domain.models import (
     Action,
     ActionStatus,
@@ -38,6 +39,7 @@ class SimpleWorkflow:
     gateway: DeviceGateway
     publisher: EventPublisher
     actions: ActionRepository
+    registry: DeviceRegistry | None = None
     world_state: WorldState = field(default_factory=WorldState)
     evaluator: SceneEvaluator = field(default_factory=SceneEvaluator)
     permissions: PermissionPolicy = field(default_factory=PermissionPolicy)
@@ -115,6 +117,7 @@ class SimpleWorkflow:
             )
             return action
 
+        await self._sync_device_registry(action)
         safety = self.safety.check(action, self.world_state)
         await self._publish_action(
             "safety.checked",
@@ -144,6 +147,7 @@ class SimpleWorkflow:
         action = await self._require_action(action_id)
         if action.status is not ActionStatus.WAITING_CONFIRMATION:
             raise ValueError(f"action {action_id} is not waiting for confirmation")
+        await self._sync_device_registry(action)
         safety = self.safety.check(action, self.world_state)
         await self._publish_action(
             "safety.checked",
@@ -303,6 +307,38 @@ class SimpleWorkflow:
         if action is None:
             raise LookupError(f"action {action_id} not found")
         return action
+
+    async def _sync_device_registry(self, action: Action) -> None:
+        if self.registry is None:
+            return
+        try:
+            record = await self.registry.get_device(action.device_id)
+        except Exception as exc:  # noqa: BLE001 - adapters may raise vendor-specific errors
+            self.world_state.apply_device_record(action.device_id, None)
+            await self._publish_action(
+                "device.registry_failed",
+                action,
+                payload={"error": str(exc)},
+            )
+            return
+
+        self.world_state.apply_device_record(action.device_id, record)
+        await self._publish_action(
+            "device.registry_synced",
+            action,
+            payload={
+                "device": (
+                    record.model_dump(mode="json")
+                    if record is not None
+                    else {
+                        "device_id": action.device_id,
+                        "availability": "unknown",
+                        "capabilities": [],
+                        "capabilities_known": False,
+                    }
+                )
+            },
+        )
 
     async def _transition(
         self,

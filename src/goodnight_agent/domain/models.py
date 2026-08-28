@@ -47,6 +47,12 @@ class DeviceCommandStatus(StrEnum):
         return self in {self.SUCCEEDED, self.FAILED, self.STOPPED}
 
 
+class DeviceAvailability(StrEnum):
+    UNKNOWN = "unknown"
+    ONLINE = "online"
+    OFFLINE = "offline"
+
+
 class Observation(BaseModel):
     observation_id: str = Field(default_factory=lambda: new_id("obs"))
     source: str
@@ -102,6 +108,14 @@ class DeviceStatus(BaseModel):
     error_code: str | None = None
     message: str | None = None
     timestamp: datetime = Field(default_factory=utc_now)
+
+
+class DeviceRecord(BaseModel):
+    device_id: str
+    availability: DeviceAvailability = DeviceAvailability.UNKNOWN
+    capabilities: list[str] = Field(default_factory=list)
+    capabilities_known: bool = False
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class DomainEvent(BaseModel):

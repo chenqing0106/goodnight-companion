@@ -4,7 +4,13 @@ import pytest
 
 from goodnight_agent.agent.workflow import SimpleWorkflow
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
-from goodnight_agent.domain.models import ActionStatus, Observation
+from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
+from goodnight_agent.domain.models import (
+    ActionStatus,
+    DeviceAvailability,
+    DeviceRecord,
+    Observation,
+)
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
 
@@ -27,12 +33,14 @@ def sleeping_observation(*, online: bool = True) -> Observation:
 def build_workflow(
     gateway: InMemoryDeviceGateway | None = None,
     *,
+    registry: DeviceRegistry | None = None,
     timeout_ms: int = 500,
 ) -> tuple[SimpleWorkflow, InMemoryEventPublisher, InMemoryActionRepository]:
     events = InMemoryEventPublisher()
     actions = InMemoryActionRepository()
     workflow = SimpleWorkflow(
         gateway=gateway or InMemoryDeviceGateway(step_delay=0),
+        registry=registry,
         publisher=events,
         actions=actions,
         command_timeout_ms=timeout_ms,
@@ -115,4 +123,46 @@ async def test_device_timeout_becomes_explicit_failure() -> None:
 
     assert result.actions[0].status is ActionStatus.FAILED
     assert result.actions[0].error_code in {"DEVICE_TIMEOUT", "DEVICE_STREAM_ENDED"}
+    assert result.actions[1].status is ActionStatus.SUCCEEDED
+
+
+@pytest.mark.asyncio
+async def test_registry_offline_state_overrides_observation_claim() -> None:
+    registry = InMemoryDeviceRegistry(
+        devices={
+            "mock-arm": DeviceRecord(
+                device_id="mock-arm",
+                availability=DeviceAvailability.OFFLINE,
+                capabilities=["move_phone_to_dock", "turn_off_light"],
+                capabilities_known=True,
+            )
+        }
+    )
+    workflow, events, _ = build_workflow(registry=registry)
+
+    result = await workflow.process_observation(sleeping_observation(online=True))
+
+    assert all(action.status is ActionStatus.FAILED for action in result.actions)
+    assert workflow.world_state.device_states["mock-arm"] == "offline"
+    assert any(event.event_type == "device.registry_synced" for event in events.events)
+
+
+@pytest.mark.asyncio
+async def test_registry_blocks_capability_not_advertised_by_device() -> None:
+    registry = InMemoryDeviceRegistry(
+        devices={
+            "mock-arm": DeviceRecord(
+                device_id="mock-arm",
+                availability=DeviceAvailability.ONLINE,
+                capabilities=["turn_off_light"],
+                capabilities_known=True,
+            )
+        }
+    )
+    workflow, _, _ = build_workflow(registry=registry)
+
+    result = await workflow.process_observation(sleeping_observation())
+
+    assert result.actions[0].status is ActionStatus.FAILED
+    assert "capability_advertised" in (result.actions[0].reason or "")
     assert result.actions[1].status is ActionStatus.SUCCEEDED

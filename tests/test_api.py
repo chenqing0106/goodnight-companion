@@ -27,11 +27,21 @@ async def test_health_and_debug_observation() -> None:
     ) as client:
         root = await client.get("/")
         assert (await client.get("/health")).json() == {"status": "ok"}
+        devices = (await client.get("/api/devices")).json()
         response = await client.post("/api/debug/observations", json=payload)
         state = (await client.get("/api/state")).json()
 
     assert root.status_code == 307
     assert root.headers["location"] == "/docs"
+    assert len(devices) == 1
+    assert devices[0]["device_id"] == "mock-arm"
+    assert devices[0]["availability"] == "online"
+    assert devices[0]["capabilities_known"] is True
+    assert devices[0]["capabilities"] == [
+        "move_phone_to_dock",
+        "turn_off_light",
+        "stop_all_motion",
+    ]
     assert response.status_code == 200
     assert [item["status"] for item in response.json()["actions"]] == [
         "succeeded",

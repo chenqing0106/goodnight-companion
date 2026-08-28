@@ -145,6 +145,8 @@ skipped
 
 - [x] 实现 `DeviceGateway` 接口。
 - [x] 实现 `MqttDeviceGateway`。
+- [x] 订阅 availability 和 capabilities 并维护 `DeviceRegistry`。
+- [x] 在 Safety Policy 前同步真实设备状态和能力。
 - [x] 实现 command/status 关联。
 - [x] 实现等待、超时和停止。
 - [x] 实现 `ResultVerifier` 的 Mock 验证。

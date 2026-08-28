@@ -44,6 +44,11 @@ class SafetyPolicy:
             "no_conflicting_action": no_conflicting_action,
         }
 
+        if action.device_id in state.device_capabilities:
+            checks["capability_advertised"] = (
+                action.capability in state.device_capabilities[action.device_id]
+            )
+
         if action.capability == "move_phone_to_dock":
             checks["phone_in_operation_zone"] = state.phone_location == "operation_zone"
         elif action.capability == "turn_off_light":
