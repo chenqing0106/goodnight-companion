@@ -251,7 +251,7 @@ export function TonightPage({
 
   return (
     <main data-screen-label="好梦鸟">
-      <PageIntro eyebrow="Tonight" title="今晚，我守着。" />
+      <PageIntro eyebrow="今晚" title="今晚，我守着。" />
 
       {state.error && (
         <section className={styles.errorCard} role="alert">

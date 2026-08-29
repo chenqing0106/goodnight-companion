@@ -7,8 +7,8 @@ export function MemoryPage({ runtime }: { runtime: MemoryRuntime }) {
     return (
       <main data-screen-label="记忆">
         <PageIntro
-          eyebrow="Memory"
-          title="我记得，但不自作主张。"
+          eyebrow="记忆"
+          title="睡眠偏好"
           subtitle="每条睡眠偏好都应该能看到来源，也应该随时可以修改或删除。"
         />
         <EmptyCapability
@@ -28,8 +28,8 @@ export function MemoryPage({ runtime }: { runtime: MemoryRuntime }) {
   return (
     <main data-screen-label="记忆">
       <PageIntro
-        eyebrow="Memory"
-        title="我记得，但不自作主张。"
+        eyebrow="记忆"
+        title="睡眠偏好"
         subtitle="每条偏好都说明来源。你可以随时修改或删除，不需要解释原因。"
       />
 

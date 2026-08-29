@@ -30,8 +30,8 @@ export function DevicesPage({
   return (
     <main data-screen-label="设备">
       <PageIntro
-        eyebrow="Devices"
-        title="都准备好了。"
+        eyebrow="硬件"
+        title="设备与能力"
         subtitle={
           dataMode === "preview"
             ? "这里显示本地预览设备，用于独立调试设备列表和状态。"
