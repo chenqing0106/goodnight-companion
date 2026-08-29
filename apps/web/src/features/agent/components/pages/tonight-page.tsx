@@ -61,6 +61,8 @@ const ACTIVE_PHASE_COPY: Record<AgentActivityStepView["phase"], string> = {
   verification: "正在核对执行结果",
 };
 
+const SHOW_SENSOR_PANEL = false;
+
 type TonightTimelineEntry =
   | {
       kind: "activity";
@@ -299,7 +301,8 @@ export function TonightPage({
         </div>
       </section>
 
-      <section className={styles.sensorPanel} aria-label="实时获取的信息状态">
+      {SHOW_SENSOR_PANEL && (
+        <section className={styles.sensorPanel} aria-label="实时获取的信息状态">
         <div className={styles.sensorHeader}>
           <div>
             <span className={styles.sensorKicker}>ENV-S3 · 实时感知</span>
@@ -381,7 +384,8 @@ export function TonightPage({
           </div>
           <b>{vitalsEvaluation.progress}</b>
         </div>
-      </section>
+        </section>
+      )}
 
       <div className={styles.sectionLabel}>
         <div>
