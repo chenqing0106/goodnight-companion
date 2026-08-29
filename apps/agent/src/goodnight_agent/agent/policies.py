@@ -21,6 +21,11 @@ class PermissionPolicy:
             "turn_on_light": PermissionMode.AUTOMATIC,
             "pull_blanket": PermissionMode.AUTOMATIC,
             "reset_arm": PermissionMode.AUTOMATIC,
+            "arm_take_phone": PermissionMode.AUTOMATIC,
+            "arm_shake_toy": PermissionMode.AUTOMATIC,
+            "arm_pull_blanket": PermissionMode.AUTOMATIC,
+            "arm_insert_item": PermissionMode.AUTOMATIC,
+            "arm_storytelling": PermissionMode.AUTOMATIC,
         }
     )
 

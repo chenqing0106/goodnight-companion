@@ -153,4 +153,34 @@ def build_default_tool_registry() -> ToolRegistry:
         risk_level=ToolRiskLevel.PHYSICAL_HIGH,
         parameters_model=NoParameters,
     )
+    registry.register(
+        name="arm_take_phone",
+        description="机械臂一次性动作：拿走操作区域内的手机（take_phone02，自动回落 sleep2）",
+        risk_level=ToolRiskLevel.PHYSICAL_HIGH,
+        parameters_model=NoParameters,
+    )
+    registry.register(
+        name="arm_shake_toy",
+        description="机械臂一次性动作：摇动玩具（shake_toy02，自动回落 sleep2）",
+        risk_level=ToolRiskLevel.PHYSICAL_LOW,
+        parameters_model=NoParameters,
+    )
+    registry.register(
+        name="arm_pull_blanket",
+        description="机械臂一次性动作：拉动被角盖被（blanket01，自动回落 sleep2）",
+        risk_level=ToolRiskLevel.PHYSICAL_HIGH,
+        parameters_model=NoParameters,
+    )
+    registry.register(
+        name="arm_insert_item",
+        description="机械臂一次性动作：抓取并收纳物品（insert02，自动回落 sleep2）",
+        risk_level=ToolRiskLevel.PHYSICAL_HIGH,
+        parameters_model=NoParameters,
+    )
+    registry.register(
+        name="arm_storytelling",
+        description="机械臂持续动作：讲故事摆动（plant2，需显式停止才回落）",
+        risk_level=ToolRiskLevel.PHYSICAL_LOW,
+        parameters_model=NoParameters,
+    )
     return registry

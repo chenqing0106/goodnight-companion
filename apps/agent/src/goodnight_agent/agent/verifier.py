@@ -65,4 +65,18 @@ class ResultVerifier:
             reason = "设备已确认灯光模式" if verified else "设备回执与请求的灯光模式不一致"
             return VerificationResult(verified=verified, reason=reason)
 
+        arm_scenes = {
+            "arm_take_phone": "take_phone02",
+            "arm_shake_toy": "shake_toy02",
+            "arm_pull_blanket": "blanket01",
+            "arm_insert_item": "insert02",
+            "arm_storytelling": "plant2",
+        }
+        expected_scene = arm_scenes.get(action.capability)
+        if expected_scene is not None:
+            facts = (device_result or {}).get("facts", {})
+            verified = isinstance(facts, dict) and facts.get("arm_scene") == expected_scene
+            reason = "机械臂服务已确认场景回放完成" if verified else "机械臂服务回执未确认场景回放完成"
+            return VerificationResult(verified=verified, reason=reason)
+
         return VerificationResult(verified=False, reason="当前能力没有结果验证规则")

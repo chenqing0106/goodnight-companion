@@ -5,12 +5,12 @@ import json
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from goodnight_agent.agent.mock_activity import (
     SIMULATED_TOOL_NAMES,
@@ -33,15 +33,19 @@ from goodnight_agent.devices.registry import (
     InMemoryDeviceRegistry,
     OverlayDeviceRegistry,
 )
+from goodnight_agent.devices.robot_arm import ARM_CAPABILITIES, RobotArmHttpGateway
 from goodnight_agent.devices.router import CapabilityGatewayRouter
 from goodnight_agent.domain.models import (
     Action,
     ActionRequest,
+    ActionStatus,
     Decision,
+    DeviceAvailability,
     DeviceRecord,
     DomainEvent,
     Observation,
     SensorReading,
+    new_id,
 )
 from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
@@ -55,6 +59,36 @@ class DeviceControlRequest(BaseModel):
     mode: Annotated[int, Field(strict=True, ge=0, le=9)]
 
 
+ArmCapability = Literal[
+    "arm_take_phone",
+    "arm_shake_toy",
+    "arm_pull_blanket",
+    "arm_insert_item",
+    "arm_storytelling",
+]
+
+
+class ArmActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    capability: ArmCapability
+
+
+class ArmActionStartResult(BaseModel):
+    run_id: str
+    capability: str
+    device_id: str
+    status: Literal["accepted"] = "accepted"
+
+
+TERMINAL_ACTION_STATUSES = {
+    ActionStatus.SUCCEEDED,
+    ActionStatus.FAILED,
+    ActionStatus.STOPPED,
+    ActionStatus.SKIPPED,
+}
+
+
 @dataclass
 class AppServices:
     workflow: SimpleWorkflow
@@ -66,6 +100,8 @@ class AppServices:
     mock_activity: MockActivitySimulator
     simulated_gateway: InMemoryDeviceGateway
     sensor_automation: VitalsSignalAutomation | None = None
+    arm_gateway: RobotArmHttpGateway | None = None
+    background_tasks: set[asyncio.Task[object]] = field(default_factory=set)
 
 
 def _build_registry(
@@ -92,6 +128,27 @@ def _build_registry(
     )
 
 
+def _register_arm_device(registry: DeviceRegistry, record: DeviceRecord) -> None:
+    """把机械臂设备登记进本地记录，让安全检查能看到它在线、能力齐备。"""
+    if isinstance(registry, OverlayDeviceRegistry):
+        registry.overlay.devices[record.device_id] = record
+    elif isinstance(registry, InMemoryDeviceRegistry):
+        registry.devices[record.device_id] = record
+
+
+def build_arm_gateway_from_environment() -> RobotArmHttpGateway | None:
+    """设置 GOODNIGHT_ARM_BASE_URL 后启用机械臂 HTTP 网关（ASUS 场景服务）。"""
+    base_url = os.getenv("GOODNIGHT_ARM_BASE_URL")
+    if not base_url:
+        return None
+    return RobotArmHttpGateway(
+        base_url=base_url.rstrip("/"),
+        poll_interval=float(os.getenv("GOODNIGHT_ARM_POLL_INTERVAL", "1.0")),
+        request_timeout=float(os.getenv("GOODNIGHT_ARM_REQUEST_TIMEOUT", "5.0")),
+        trigger_timeout=float(os.getenv("GOODNIGHT_ARM_TRIGGER_TIMEOUT", "30.0")),
+    )
+
+
 def build_services(
     gateway: DeviceGateway | None = None,
     registry: DeviceRegistry | None = None,
@@ -106,13 +163,31 @@ def build_services(
     simulated_gateway = InMemoryDeviceGateway(
         step_delay=float(os.getenv("GOODNIGHT_SIM_STEP_DELAY", "0.25"))
     )
+    arm_gateway = build_arm_gateway_from_environment()
+    gateway_overrides: dict[str, DeviceGateway] = {
+        name: simulated_gateway for name in SIMULATED_TOOL_NAMES
+    }
+    if arm_gateway is not None:
+        gateway_overrides.update({name: arm_gateway for name in ARM_CAPABILITIES})
+        _register_arm_device(
+            actual_registry,
+            DeviceRecord(
+                device_id=arm_gateway.device_id,
+                availability=DeviceAvailability.ONLINE,
+                capabilities=list(ARM_CAPABILITIES),
+                capabilities_known=True,
+            ),
+        )
     routed_gateway = CapabilityGatewayRouter(
         default=actual_gateway,
-        overrides={name: simulated_gateway for name in SIMULATED_TOOL_NAMES},
+        overrides=gateway_overrides,
     )
     events = InMemoryEventPublisher()
     actions = InMemoryActionRepository()
     tool_registry = build_default_tool_registry()
+    # 机械臂一次性轨迹回放通常超过 30 秒；启用机械臂且未显式配置时放宽到 120 秒
+    default_timeout = "120000" if arm_gateway is not None else "30000"
+    command_timeout_ms = int(os.getenv("GOODNIGHT_COMMAND_TIMEOUT_MS", default_timeout))
     workflow = SimpleWorkflow(
         gateway=routed_gateway,
         registry=actual_registry,
@@ -120,6 +195,7 @@ def build_services(
         publisher=events,
         actions=actions,
         evaluator=SceneEvaluator(device_id=device_id),
+        command_timeout_ms=command_timeout_ms,
     )
     mock_activity = MockActivitySimulator(
         publisher=events,
@@ -149,6 +225,7 @@ def build_services(
         mock_activity=mock_activity,
         simulated_gateway=simulated_gateway,
         sensor_automation=sensor_automation,
+        arm_gateway=arm_gateway,
     )
 
 
@@ -178,6 +255,7 @@ def build_gateway_from_environment() -> DeviceGateway:
             device_id=os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "env-s3-01"),
             username=os.getenv("GOODNIGHT_MQTT_USERNAME"),
             password=os.getenv("GOODNIGHT_MQTT_PASSWORD"),
+            mock_sensors=_environment_flag("GOODNIGHT_ENV_S3_MOCK_SENSORS"),
         )
     raise ValueError(f"unsupported GOODNIGHT_DEVICE_TRANSPORT: {transport}")
 
@@ -203,6 +281,8 @@ def create_app(
                     await automation_task
             await services.mock_activity.close()
             await services.simulated_gateway.close()
+            if services.arm_gateway is not None:
+                await services.arm_gateway.close()
             await services.gateway.close()
             if services.registry is not services.gateway:
                 await services.registry.close()
@@ -312,6 +392,66 @@ def create_app(
     @application.get("/api/tools", response_model=list[ToolDefinition])
     async def list_tools() -> list[ToolDefinition]:
         return services.tools.list_definitions()
+
+    @application.post(
+        "/api/arm/actions",
+        response_model=ArmActionStartResult,
+        status_code=202,
+    )
+    async def start_arm_action(request: ArmActionRequest) -> ArmActionStartResult:
+        """后台触发机械臂场景动作，立即返回 run_id。
+
+        动作经 workflow 在后台执行，用 /api/actions 或 /api/events 跟踪进度；
+        停止用 /api/runs/{run_id}/stop 或 /api/actions/{action_id}/stop。
+        """
+        arm = services.arm_gateway
+        if arm is None:
+            raise HTTPException(
+                status_code=503,
+                detail="机械臂网关未启用，请设置 GOODNIGHT_ARM_BASE_URL",
+            )
+        for action in await services.actions.list():
+            if action.device_id == arm.device_id and action.status not in TERMINAL_ACTION_STATUSES:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"机械臂正在执行 {action.capability}（{action.action_id}）",
+                )
+
+        run_id = new_id("run")
+        observation = Observation(source="admin_arm_control", facts={}, confidence=1)
+        decision = Decision(
+            scene="manual_arm_control",
+            should_intervene=True,
+            reason="后台手动触发机械臂动作",
+            confidence=1,
+            proposed_actions=[
+                ActionRequest(
+                    capability=request.capability,
+                    parameters={},
+                    device_id=arm.device_id,
+                )
+            ],
+        )
+        task = asyncio.create_task(
+            services.workflow.process_observation(
+                observation,
+                run_id=run_id,
+                proposed_decision=decision,
+            )
+        )
+        services.background_tasks.add(task)
+
+        def _discard(completed: asyncio.Task[object]) -> None:
+            services.background_tasks.discard(completed)
+            if not completed.cancelled():
+                completed.exception()
+
+        task.add_done_callback(_discard)
+        return ArmActionStartResult(
+            run_id=run_id,
+            capability=request.capability,
+            device_id=arm.device_id,
+        )
 
     @application.get("/api/automation")
     async def get_automation_status() -> dict[str, object]:
