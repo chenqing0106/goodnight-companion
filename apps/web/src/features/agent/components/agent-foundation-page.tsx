@@ -149,7 +149,7 @@ export function AgentFoundationPage() {
             >
               {state.isStarting
                 ? "正在启动"
-                : "模拟已经稳定入睡"}
+                : "标记为已稳定入睡"}
             </button>
             <button
               className={styles.stopButton}

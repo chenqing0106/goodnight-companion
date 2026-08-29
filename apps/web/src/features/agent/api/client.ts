@@ -153,7 +153,7 @@ export async function startMockActivity(
     },
   );
   if (error || !data) {
-    throw requestError("启动连续思考演示", response, error);
+    throw requestError("启动连续场景", response, error);
   }
   return data;
 }
@@ -163,7 +163,7 @@ export async function stopMockActivity(): Promise<MockActivityStopResult> {
     "/api/debug/mock-activity/stop",
   );
   if (error || !data) {
-    throw requestError("停止场景演示", response, error);
+    throw requestError("停止场景播放", response, error);
   }
   return data;
 }

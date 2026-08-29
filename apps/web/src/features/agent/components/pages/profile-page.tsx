@@ -13,7 +13,7 @@ export function ProfilePage({ runtime }: { runtime: ProfileRuntime }) {
     return (
       <main data-screen-label="鸟窝">
         <PageIntro
-          eyebrow="设置"
+          eyebrow=""
           title="主动程度与权限"
           subtitle="拒绝、停止、关闭摄像头，都不会影响你继续使用其他能力。"
         />
@@ -114,7 +114,7 @@ export function ProfilePage({ runtime }: { runtime: ProfileRuntime }) {
       <PageIntro
         eyebrow="设置"
         title="主动程度与权限"
-        subtitle="设置需要真实保存后才算生效。当前版本不会用本地开关模拟设备权限。"
+        subtitle="设置需要真实保存后才算生效。"
       />
       <section className={styles.panelCard}>
         <div className={styles.listRow}>

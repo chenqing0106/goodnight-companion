@@ -30,7 +30,7 @@ export function DevicesPage({
   return (
     <main data-screen-label="设备">
       <PageIntro
-        eyebrow="硬件"
+        eyebrow=""
         title="设备与能力"
         subtitle={
           dataMode === "preview"

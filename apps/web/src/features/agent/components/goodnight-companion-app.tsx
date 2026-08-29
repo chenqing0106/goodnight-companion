@@ -99,7 +99,13 @@ function CompanionShell({
           <header className={styles.topbar}>
             <div className={styles.brandLockup}>
               <div className={styles.brandMark}>
-                <Icon name="moon" size={19} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/orange-abstract-bird-logo.svg"
+                  alt="好梦鸟标志"
+                  width={34}
+                  height={34}
+                />
               </div>
               <div>
                 <div className={styles.brandName}>好梦鸟</div>

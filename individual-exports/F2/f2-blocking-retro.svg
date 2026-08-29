@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="140 95 380 480" role="img" aria-labelledby="title desc">
+<style>svg&gt;rect,svg&gt;path,svg&gt;text,svg&gt;circle{display:none}</style>
+<title id="title">好梦鸟 F2 生气阻止·复古现代主义版</title><desc id="desc">机械臂大幅前探，鸟头左右跟随并明显摇头表达不满。</desc>
+<defs>
+ <linearGradient id="metal" x2="1" y2="1"><stop stop-color="#8e785d"/><stop offset=".22" stop-color="#191b1d"/><stop offset=".55" stop-color="#50463a"/><stop offset="1" stop-color="#b29164"/></linearGradient>
+ <linearGradient id="ivory" x2="0" y2="1"><stop stop-color="#f8eedc"/><stop offset="1" stop-color="#b9aa94"/></linearGradient>
+ <linearGradient id="beak" x2="0" y2="1"><stop stop-color="#ff9d30"/><stop offset="1" stop-color="#bd4c17"/></linearGradient>
+ <radialGradient id="eye"><stop stop-color="#fffdf4"/><stop offset=".72" stop-color="#e1d6c2"/><stop offset="1" stop-color="#91826e"/></radialGradient>
+ <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#171717" stroke-width=".7" opacity=".14"/></pattern>
+ <filter id="grain"><feTurbulence baseFrequency=".75" numOctaves="3" seed="12" type="fractalNoise"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .18 0"/></filter>
+ <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000" flood-opacity=".28"/></filter>
+ <filter id="fluff" x="-12%" y="-12%" width="124%" height="124%"><feTurbulence type="fractalNoise" baseFrequency=".035 .12" numOctaves="2" seed="7" result="fur"/><feDisplacementMap in="SourceGraphic" in2="fur" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>
+ <g id="joint"><circle r="24" fill="#101214" stroke="#d0aa72" stroke-width="5"/><circle r="16" fill="url(#metal)" stroke="#0c0c0c" stroke-width="3"/><circle r="7" fill="#d4ad71"/><g fill="#e0ba80"><circle cy="-19" r="2.2"/><circle cy="19" r="2.2"/><circle cx="19" r="2.2"/><circle cx="-19" r="2.2"/></g></g>
+</defs>
+<rect width="640" height="640" fill="#f1e5cf"/><rect width="640" height="640" fill="url(#grid)"/><rect width="640" height="640" filter="url(#grain)" opacity=".32"/>
+<path d="M0 0H640V102H0Z" fill="#f0441d"/><path d="M0 102H640" stroke="#111" stroke-width="5"/><text x="26" y="70" font-family="Arial Black,Arial,sans-serif" font-size="64" font-weight="900" fill="#111">02</text><text x="122" y="49" font-family="Arial Black,Arial,sans-serif" font-size="27" font-weight="900" fill="#111">生气阻止</text><text x="122" y="78" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#111">F2 / BLOCKING · FORWARD / TRACK / SHAKE</text><text x="472" y="38" font-family="Arial,sans-serif" font-size="12" font-weight="800">HAOMENG BIRD</text><text x="472" y="57" font-family="Arial,sans-serif" font-size="11">HM–BIRD–02</text>
+<rect x="22" y="124" width="596" height="446" fill="#f7eedc" stroke="#111" stroke-width="3"/><path d="M36 140h36m-36 0v36M604 140h-36m36 0v36M36 554h36m-36 0v-36M604 554h-36m36 0v-36" fill="none" stroke="#f0441d" stroke-width="3"/>
+<g filter="url(#shadow)">
+ <ellipse cx="332" cy="540" rx="90" ry="16" fill="#000" opacity=".2"/>
+ <path d="M240 492q8-34 42-42h100q34 8 42 42l-8 44q-15 15-84 15t-84-15Z" fill="url(#ivory)" stroke="#111" stroke-width="6"/>
+ <path d="M245 457h174" stroke="#111" stroke-width="3"/><rect x="258" y="474" width="45" height="28" rx="4" fill="#111"/><g fill="#f1e5cf"><circle cx="267" cy="483" r="2"/><circle cx="276" cy="483" r="2"/><circle cx="285" cy="483" r="2"/><circle cx="294" cy="483" r="2"/><circle cx="267" cy="493" r="2"/><circle cx="276" cy="493" r="2"/><circle cx="285" cy="493" r="2"/><circle cx="294" cy="493" r="2"/></g><circle cx="403" cy="487" r="15" fill="#e7a34d" stroke="#111" stroke-width="4"/><circle cx="403" cy="487" r="7" fill="#f0441d"/>
+</g>
+ <g id="arm"><animateTransform attributeName="transform" type="rotate" values="0 332 447;-28 332 447;-8 332 447;-26 332 447;0 332 447" keyTimes="0;.18;.43;.7;1" dur="3.2s" repeatCount="indefinite"/>
+ <path d="M332 447 291 382 373 312 342 226" fill="none" stroke="#0e0f10" stroke-width="44" stroke-linejoin="round"/>
+ <path d="M332 447 291 382 373 312 342 226" fill="none" stroke="url(#metal)" stroke-width="29" stroke-linejoin="round"/>
+ <path d="M323 439 283 382 365 310 334 230M341 442 301 384 382 316 351 224" fill="none" stroke="#111" stroke-width="4" opacity=".85"/>
+ <use href="#joint" x="332" y="447"/><use href="#joint" x="291" y="382"/><use href="#joint" x="373" y="312"/><use href="#joint" x="342" y="226"/>
+ <g id="head"><animateTransform attributeName="transform" type="translate" values="0 0;-48 -6;48 5;-40 -4;34 3;0 0" keyTimes="0;.18;.38;.57;.75;1" dur="3.2s" repeatCount="indefinite"/><animateTransform attributeName="transform" additive="sum" type="rotate" values="0 342 226;-22 342 226;22 342 226;-19 342 226;17 342 226;0 342 226" keyTimes="0;.18;.38;.57;.75;1" dur="3.2s" repeatCount="indefinite"/>
+  <path d="M232 194C232 149 269 120 315 120C362 120 398 151 398 200q15 85-87 91-105-6-79-97Z" fill="#d43a22" stroke="#111" stroke-width="6" stroke-linejoin="round" filter="url(#fluff)"/>
+  <path d="M275 133C276 113 292 109 302 125C304 104 321 102 327 124C335 107 351 111 355 133C332 126 300 126 275 133Z" fill="#d43a22" stroke="#111" stroke-width="5" stroke-linejoin="round" filter="url(#fluff)"/>
+  <path d="M248 190Q253 151 288 145Q315 143 326 169Q338 143 365 146Q399 153 404 190Q400 225 365 239Q339 240 326 218Q313 240 287 238Q252 224 248 190Z" fill="#ef6c54" opacity=".72"/><path d="M245 225Q259 246 283 253M407 225Q393 246 369 253" fill="none" stroke="#7e2118" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+  <g fill="none" stroke="#f58a70" stroke-width="4" stroke-linecap="round" opacity=".62"><path d="M251 171q10-9 18-2M242 193q10-7 18 1M246 217q10-5 18 3M262 243q9-3 17 5M382 168q10-6 18 3M394 192q9-5 16 2M390 217q9-3 16 4M373 243q9-2 16 5M285 135q7-7 13 1M307 128q7-8 14 0M332 134q7-7 13 1"/></g>
+  <g fill="url(#eye)" stroke="#211d19" stroke-width="8"><ellipse cx="292" cy="190" rx="35" ry="41"/><ellipse cx="357" cy="190" rx="35" ry="41"/></g><g fill="#111"><circle cx="303" cy="200" r="14"/><circle cx="347" cy="200" r="14"/></g><g fill="#fff"><circle cx="308" cy="194" r="4"/><circle cx="352" cy="194" r="4"/></g>
+  <path id="lids" d="M260 158Q289 140 318 157M338 157Q366 140 391 158" fill="none" stroke="#7e2118" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#f58b72" opacity=".72"><ellipse cx="270" cy="227" rx="14" ry="7"/><ellipse cx="382" cy="227" rx="14" ry="7"/></g>
+  <path d="M307 211q20-20 45 0-2 32-22 35-22-3-23-35Z" fill="url(#beak)" stroke="#5e2a17" stroke-width="5"/><path d="M314 253q16-11 32 0" fill="none" stroke="#2b1712" stroke-width="6" stroke-linecap="round"/>
+ </g>
+</g>
+<path d="M448 206h120v52H448" fill="none" stroke="#111" stroke-width="2"/><circle cx="448" cy="206" r="5" fill="#f0441d"/><text x="462" y="226" font-family="Arial,sans-serif" font-size="12" font-weight="800">HEAD: ±30 PX</text><text x="462" y="244" font-family="Arial,sans-serif" font-size="11">BROW / ANGRY</text>
+<path d="M128 382h90" stroke="#111" stroke-width="2"/><circle cx="218" cy="382" r="5" fill="#f0441d"/><text x="48" y="373" font-family="Arial,sans-serif" font-size="11" font-weight="800">ARM −18°</text><text x="48" y="390" font-family="Arial,sans-serif" font-size="10">FOLLOW / 3.2 SEC</text>
+<rect y="586" width="640" height="54" fill="#111"/><text x="25" y="618" fill="#f1e5cf" font-family="Arial Black,Arial,sans-serif" font-size="17">人好，熬夜坏。</text><text x="470" y="617" fill="#f0441d" font-family="Arial,sans-serif" font-size="12" font-weight="800">STATE / F2 / 02</text>
+</svg>

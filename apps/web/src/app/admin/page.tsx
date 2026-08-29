@@ -3,6 +3,12 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
+import {
+  BIRD_STATES,
+  isBirdControlMode,
+  type BirdControlMode,
+} from "@/features/agent/model/bird-state";
+
 import styles from "./page.module.css";
 
 type SensorName = "temp" | "humidity" | "light" | "heart_rate" | "spo2";
@@ -145,6 +151,9 @@ export default function AdminPage() {
   const [scenarioStatus, setScenarioStatus] = useState<ScenarioStatus | null>(null);
   const [scenarioPending, setScenarioPending] = useState(false);
   const [scenarioFeedback, setScenarioFeedback] = useState<Feedback | null>(null);
+  const [birdMode, setBirdMode] = useState<BirdControlMode>("auto");
+  const [birdPending, setBirdPending] = useState(false);
+  const [birdFeedback, setBirdFeedback] = useState<Feedback | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -184,6 +193,14 @@ export default function AdminPage() {
             error instanceof Error ? error.message : "无法读取后端状态",
           );
         }
+      }
+
+      // 好梦鸟状态由前端自己的接口提供，独立于硬件后端同步
+      try {
+        const bird = await requestJson<{ mode: unknown }>("/api/bird-state");
+        if (!disposed && isBirdControlMode(bird.mode)) setBirdMode(bird.mode);
+      } catch {
+        // 状态接口暂时不可用时保持当前显示
       } finally {
         if (!disposed) {
           setLoading(false);
@@ -270,7 +287,7 @@ export default function AdminPage() {
     setScenarioFeedback(null);
     try {
       await requestJson("/api/debug/mock-activity/stop", { method: "POST" });
-      setScenarioFeedback({ tone: "success", message: "已发送停止，机械臂会模拟复位" });
+      setScenarioFeedback({ tone: "success", message: "已发送停止，机械臂将复位" });
     } catch (error) {
       setScenarioFeedback({
         tone: "error",
@@ -278,6 +295,32 @@ export default function AdminPage() {
       });
     } finally {
       setScenarioPending(false);
+    }
+  }
+
+  async function selectBirdMode(mode: BirdControlMode) {
+    if (birdPending || mode === birdMode) return;
+    setBirdPending(true);
+    setBirdFeedback(null);
+    try {
+      await requestJson("/api/bird-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      setBirdMode(mode);
+      const label =
+        mode === "auto"
+          ? "自动跟随前台状态"
+          : BIRD_STATES.find((item) => item.id === mode)?.label ?? mode;
+      setBirdFeedback({ tone: "success", message: `好梦鸟已切换为：${label}` });
+    } catch (error) {
+      setBirdFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "状态切换失败",
+      });
+    } finally {
+      setBirdPending(false);
     }
   }
 
@@ -444,8 +487,8 @@ export default function AdminPage() {
         <section className={`${styles.panel} ${styles.scenarioPanel}`}>
           <div className={styles.sectionHeading}>
             <div>
-              <span>SCENARIO DEMO</span>
-              <h2>场景演示</h2>
+              <span>SCENARIO</span>
+              <h2>场景播放</h2>
             </div>
             <small>
               {scenarioStatus?.running
@@ -473,7 +516,7 @@ export default function AdminPage() {
 
             <div className={styles.scenarioFooter}>
               <label className={styles.speedSelect}>
-                演示速度
+                播放速度
                 <select
                   disabled={scenarioStatus?.running || scenarioPending}
                   onChange={(event) => setSpeed(Number(event.target.value))}
@@ -520,6 +563,60 @@ export default function AdminPage() {
               </div>
             ) : null}
           </div>
+        </section>
+
+        <section className={`${styles.panel} ${styles.birdPanel}`}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <span>BIRD STATE</span>
+              <h2>好梦鸟状态</h2>
+            </div>
+            <small>{birdPending ? "正在切换" : "前台实时同步"}</small>
+          </div>
+
+          <div className={styles.birdOptions}>
+            <button
+              aria-pressed={birdMode === "auto"}
+              className={styles.birdOption}
+              disabled={birdPending}
+              onClick={() => void selectBirdMode("auto")}
+              type="button"
+            >
+              <span className={styles.birdAutoBadge}>AUTO</span>
+              <strong>自动跟随</strong>
+              <span>根据前台 Agent 阶段和场景自动切换五种状态</span>
+            </button>
+
+            {BIRD_STATES.map((item) => (
+              <button
+                aria-pressed={birdMode === item.id}
+                className={styles.birdOption}
+                disabled={birdPending}
+                key={item.id}
+                onClick={() => void selectBirdMode(item.id)}
+                type="button"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className={styles.birdThumb}
+                  src={item.file}
+                  alt={item.alt}
+                />
+                <strong>{item.label}</strong>
+                <span>触发情况：{item.trigger}</span>
+              </button>
+            ))}
+          </div>
+
+          {birdFeedback ? (
+            <div
+              className={styles.feedback}
+              data-tone={birdFeedback.tone}
+              role="status"
+            >
+              {birdFeedback.message}
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

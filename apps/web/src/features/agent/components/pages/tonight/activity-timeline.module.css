@@ -1,0 +1,332 @@
+.run {
+  margin: 0 2px;
+}
+
+.stream {
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 7px 0;
+}
+
+.rowTime {
+  padding-top: 2px;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rowBody {
+  min-width: 0;
+}
+
+/* 感知 / 决策叙事行 */
+
+.narrative {
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.narrativeKey {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.narrativeFinal {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.finalMark {
+  margin-right: 8px;
+  color: var(--safe);
+  font-weight: 800;
+}
+
+.finalMarkFailed {
+  margin-right: 8px;
+  color: var(--warn);
+  font-weight: 800;
+}
+
+/* 最终完成 / 失败收尾卡 */
+
+.finalCard {
+  margin: 6px 0 4px;
+  padding: 13px 15px;
+  border-radius: 18px;
+  color: #fff8f3;
+  background: var(--accent);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.finalCard .narrative,
+.finalCard .toolLine {
+  color: inherit;
+  font-weight: 600;
+}
+
+.finalCard .finalMark,
+.finalCard .toolMarkDone {
+  color: #fff8f3;
+}
+
+.finalCard .toolMeta {
+  border-left-color: rgba(255, 248, 243, 0.3);
+}
+
+.finalCard .toolMeta li,
+.finalCard .toolMeta code {
+  color: rgba(255, 248, 243, 0.82);
+}
+
+.failedCard {
+  margin: 6px 0 4px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--warn) 7%, var(--card));
+}
+
+/* 附属块：安全检查 / 行动计划 */
+
+.block {
+  padding: 2px 0 4px 14px;
+  border-left: 1px solid var(--line);
+}
+
+.blockLabel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 88%, var(--muted));
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.blockCount {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.checkList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 9px 0 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.checkMark {
+  margin-right: 6px;
+  color: var(--safe);
+  font-weight: 700;
+}
+
+.planList {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  list-style: none;
+}
+
+.planList li {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.planMark {
+  flex: 0 0 auto;
+  width: 13px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.planList li[data-state="done"] {
+  color: var(--muted);
+}
+
+.planList li[data-state="done"] .planMark::before {
+  content: "✓";
+  color: var(--safe);
+}
+
+.planList li[data-state="current"] .planMark::before {
+  content: "→";
+  color: var(--accent);
+  animation: plan-current-pulse 1.6s ease-in-out infinite;
+}
+
+.planList li[data-state="todo"] {
+  color: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+
+.planList li[data-state="todo"] .planMark::before {
+  content: "○";
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+/* 工具执行行 */
+
+.toolLine {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.toolMark {
+  flex: 0 0 auto;
+  width: 13px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.toolMarkDone {
+  color: var(--safe);
+}
+
+.toolMarkFailed {
+  color: var(--warn);
+}
+
+.toolMeta {
+  display: grid;
+  gap: 6px;
+  margin: 7px 0 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+
+.toolMeta li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.toolMeta code {
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted));
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+}
+
+/* 生命体征感知行：最轻的背景音 */
+
+.vitals {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.vitalsLabel {
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+/* 活跃状态：呼吸点 + 扫光 */
+
+.liveDot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: live-pulse 1.6s ease-out infinite;
+}
+
+.blockLabel .liveDot {
+  margin-right: 1px;
+}
+
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--ink) 22%,
+    color-mix(in srgb, var(--ink) 28%, white) 50%,
+    var(--ink) 78%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-slide 1.8s linear infinite;
+}
+
+/* 空态 */
+
+.empty {
+  margin: 4px 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes plan-current-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes shimmer-slide {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot,
+  .shimmer,
+  .planList li[data-state="current"] .planMark::before {
+    animation: none;
+  }
+
+  .shimmer {
+    background: none;
+    color: var(--ink);
+  }
+}

@@ -1,5 +1,4 @@
-import Image from "next/image";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { SensorName, SensorReading } from "../../api/types";
 import {
@@ -8,21 +7,22 @@ import {
 } from "../../companion-config";
 import { createPreviewSensorReadings } from "../../data/preview-fixtures";
 import { useSensorReadings } from "../../hooks/use-sensor-readings";
+import { buildLatestAgentActivity } from "../../model/agent-activity";
 import {
-  buildAgentActivities,
-  buildLatestAgentActivity,
-  type AgentActivityStepView,
-  type AgentActivityThreadView,
-} from "../../model/agent-activity";
+  BIRD_STATE_MAP,
+  isBirdControlMode,
+  resolveAutoBirdState,
+  type BirdControlMode,
+} from "../../model/bird-state";
 import {
   buildLatestVitalsRun,
   buildVitalsEvaluation,
-  type ActivityStep,
   type ActivityTone,
 } from "../../model/vitals-activity";
 import type { AgentPhase } from "../../model/reducer";
 import type { AgentRuntime } from "../companion-types";
 import { cx, PageIntro } from "../shared/shared-ui";
+import { ActivityTimeline } from "./tonight/activity-timeline";
 import styles from "./tonight-page.module.css";
 
 const PHASE_LABELS: Record<AgentPhase, string> = {
@@ -51,34 +51,7 @@ const SENSOR_ERROR_LABELS: Record<string, string> = {
   ESP_ERR_INVALID_STATE: "设备状态异常",
 };
 
-const ACTIVE_PHASE_COPY: Record<AgentActivityStepView["phase"], string> = {
-  observation: "正在感知环境变化",
-  evaluation: "正在结合连续信号判断",
-  conclusion: "正在形成当前结论",
-  plan: "正在规划下一步行动",
-  safety: "正在确认执行条件",
-  action: "正在等待设备响应",
-  verification: "正在核对执行结果",
-};
-
 const SHOW_SENSOR_PANEL = false;
-
-type TonightTimelineEntry =
-  | {
-      kind: "activity";
-      id: string;
-      timestamp: string;
-      activity: AgentActivityThreadView;
-      step: AgentActivityStepView;
-      isLastStep: boolean;
-      isLatestRun: boolean;
-    }
-  | {
-      kind: "vitals";
-      id: string;
-      timestamp: string;
-      step: ActivityStep;
-    };
 
 function sensorValue(reading: SensorReading) {
   if (!reading.valid) return "暂无有效值";
@@ -98,7 +71,7 @@ function readingMeta(reading: SensorReading, isPreview: boolean) {
       ? (SENSOR_ERROR_LABELS[reading.error] ?? reading.error)
       : "数据无效";
   }
-  if (isPreview) return "模拟数据";
+  if (isPreview) return "示例数据";
 
   const receivedAt = Date.parse(reading.received_at);
   if (!Number.isFinite(receivedAt)) return "接收时间未知";
@@ -126,17 +99,6 @@ function activityToneClass(tone: ActivityTone) {
   return classes[tone];
 }
 
-function eventTime(timestamp: string) {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return "刚刚";
-  return date.toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
-
 export function TonightPage({
   runtime,
   dataMode,
@@ -144,15 +106,7 @@ export function TonightPage({
   runtime: AgentRuntime;
   dataMode: CompanionDataMode;
 }) {
-  const {
-    state,
-    currentAction,
-    phase,
-    refresh,
-    restoreNormalState,
-    runMockActivityDemo,
-  } = runtime;
-  const latestActivityNodeRef = useRef<HTMLDivElement | null>(null);
+  const { state, currentAction, phase, refresh } = runtime;
   const liveSensors = useSensorReadings({
     deviceId: COMPANION_CONFIG.sensors.deviceId,
     enabled: dataMode === "live",
@@ -178,40 +132,43 @@ export function TonightPage({
     () => buildLatestAgentActivity(state.events),
     [state.events],
   );
-  const agentActivities = useMemo(
-    () => buildAgentActivities(state.events).slice(-1),
-    [state.events],
+  const vitalsTimelineSteps = useMemo(
+    () => (vitalsRun?.steps ?? []).filter((step) => step.tone !== "quiet"),
+    [vitalsRun],
   );
-  const timelineEntries = useMemo<TonightTimelineEntry[]>(() => {
-    const activityEntries: TonightTimelineEntry[] = agentActivities.flatMap(
-      (activity) =>
-        activity.steps.map((step, index) => ({
-          kind: "activity",
-          id: step.id,
-          timestamp: step.timestamp,
-          activity,
-          step,
-          isLastStep: index === activity.steps.length - 1,
-          isLatestRun: activity.runId === agentActivity?.runId,
-        })),
-    );
-    const vitalsEntries: TonightTimelineEntry[] = (vitalsRun?.steps ?? [])
-      .filter((step) => step.tone !== "quiet")
-      .map((step) => ({
-        kind: "vitals",
-        id: `${vitalsRun?.runId ?? "vitals"}-${step.key}`,
-        timestamp: step.timestamp,
-        step,
-      }));
-
-    return [...activityEntries, ...vitalsEntries].sort(
-      (left, right) =>
-        Date.parse(left.timestamp) - Date.parse(right.timestamp),
-    );
-  }, [agentActivities, agentActivity?.runId, vitalsRun]);
-  const activityRunning = agentActivity?.status === "running";
-  const activityStepCount = agentActivity?.steps.length ?? 0;
   const isVitalsAction = currentAction?.capability === "set_rgb_indicator";
+  const [birdControl, setBirdControl] = useState<BirdControlMode>("auto");
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function loadBirdControl() {
+      try {
+        const response = await fetch("/api/bird-state", { cache: "no-store" });
+        const payload: unknown = await response.json();
+        const mode = (payload as Record<string, unknown> | null)?.mode;
+        if (!disposed && isBirdControlMode(mode)) setBirdControl(mode);
+      } catch {
+        // 控制接口不可用时保持当前状态，下次轮询再试
+      }
+    }
+
+    void loadBirdControl();
+    const timer = setInterval(() => void loadBirdControl(), 2000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const wakeUpRunning =
+    agentActivity?.status === "running" &&
+    agentActivity.scenario === "wake_up_blanket";
+  const birdVisualState =
+    birdControl === "auto"
+      ? resolveAutoBirdState({ phase, wakeUpRunning })
+      : birdControl;
+  const birdMeta = BIRD_STATE_MAP[birdVisualState];
   const automationLabel =
     state.automation === null
       ? "检查自动感知"
@@ -219,14 +176,6 @@ export function TonightPage({
         ? `自动感知 · ${state.automation.required_samples ?? 3} 次确认`
         : "自动感知未开启";
   const isWorking = ["preparing", "executing", "verifying"].includes(phase);
-
-  useEffect(() => {
-    if (!activityRunning) return;
-    latestActivityNodeRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  }, [activityRunning, activityStepCount]);
 
   const companionLine =
     phase === "complete"
@@ -251,7 +200,7 @@ export function TonightPage({
 
   return (
     <main data-screen-label="好梦鸟">
-      <PageIntro eyebrow="今晚" title="今晚，我守着。" />
+      <PageIntro eyebrow="" title="今晚，我守着。" />
 
       {state.error && (
         <section className={styles.errorCard} role="alert">
@@ -283,20 +232,15 @@ export function TonightPage({
           </p>
           <p className={styles.companionNote}>{companionNote}</p>
         </div>
-        <div
-          className={cx(
-            styles.robot,
-            isWorking && styles.robotExecuting,
-            phase === "complete" && styles.robotSleeping,
-          )}
-        >
-          <Image
-            className={styles.robotImage}
-            src="/assets/haomeng-bird-arm.png"
-            alt="红色小鸟造型的好梦鸟机械臂"
-            width={1106}
-            height={1422}
-            priority
+        <div className={styles.robot}>
+          {/* key 切换时重新挂载，让 SVG 动画从头播放并带淡入过渡 */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={birdVisualState}
+            className={styles.birdImage}
+            src={birdMeta.file}
+            alt={birdMeta.alt}
+            title={birdMeta.label}
           />
         </div>
       </section>
@@ -328,7 +272,7 @@ export function TonightPage({
                 : sensorsLoading
                   ? "正在连接"
                   : dataMode === "preview"
-                    ? "模拟状态"
+                    ? "示例状态"
                     : `${validSensorCount}/${SENSOR_ITEMS.length} 有效`}
             </span>
           </div>
@@ -392,251 +336,12 @@ export function TonightPage({
           <h2>今晚的时间线</h2>
           <span>观察、判断和行动会连续保留</span>
         </div>
-        {(!agentActivity || activityRunning) && (
-          <button
-            className={styles.activityDemoButton}
-            type="button"
-            disabled={
-              state.connection !== "connected" ||
-              state.isStartingActivity ||
-              activityRunning
-            }
-            onClick={() => void runMockActivityDemo()}
-          >
-            {state.isStartingActivity
-              ? "正在启动"
-              : activityRunning
-                ? "感知进行中"
-                : "播放动态过程"}
-          </button>
-        )}
       </div>
 
-      <div className={styles.timeline}>
-        {timelineEntries.length > 0 ? (
-          timelineEntries.map((entry) => {
-            if (entry.kind === "vitals") {
-              return (
-                <div className={styles.timelineItem} key={entry.id}>
-                  <div
-                    className={cx(
-                      styles.timelineDot,
-                      styles.timelineDotAccent,
-                      activityToneClass(entry.step.tone),
-                    )}
-                  />
-                  <section className={styles.timelineCard} aria-live="polite">
-                    <div className={styles.timelineMeta}>
-                      <span>生命体征感知</span>
-                      <time>{eventTime(entry.timestamp)}</time>
-                    </div>
-                    <div className={styles.timelineTitle}>
-                      {entry.step.label}
-                    </div>
-                    <p className={styles.timelineText}>{entry.step.detail}</p>
-                  </section>
-                </div>
-              );
-            }
-
-            const { activity, step } = entry;
-            const isScenarioStep = step.clock !== null || step.kind !== "narrative";
-            const relaunch = () =>
-              void runMockActivityDemo(
-                activity.scenario === "wake_up_blanket" ||
-                  activity.scenario === "temperature_cooling"
-                  ? { scenario: activity.scenario }
-                  : undefined,
-              );
-            return (
-              <div
-                className={styles.timelineItem}
-                key={entry.id}
-                ref={
-                  entry.isLatestRun && entry.isLastStep
-                    ? latestActivityNodeRef
-                    : undefined
-                }
-              >
-                <div
-                  className={cx(
-                    styles.timelineDot,
-                    styles.timelineDotAccent,
-                    step.status === "active" && styles.activityActive,
-                    step.status === "succeeded" && styles.activitySuccess,
-                    step.status === "failed" && styles.activityFailed,
-                  )}
-                />
-                <article
-                  className={cx(
-                    styles.timelineCard,
-                    styles.activityTimelineCard,
-                    step.status === "active" &&
-                      styles.activityTimelineCardActive,
-                    activity.status === "completed" &&
-                      entry.isLastStep &&
-                      styles.activityResultCard,
-                    (activity.status === "failed" ||
-                      activity.status === "stopped") &&
-                      entry.isLastStep &&
-                      styles.activityFailedCard,
-                  )}
-                  aria-current={step.status === "active" ? "step" : undefined}
-                >
-                  <div className={styles.timelineMeta}>
-                    <span>
-                      {isScenarioStep ? activity.subject : step.phaseLabel}
-                    </span>
-                    <time>{step.clock ?? eventTime(step.timestamp)}</time>
-                  </div>
-                  {isScenarioStep ? (
-                    <>
-                      <p className={styles.timelineText}>{step.detail}</p>
-                      {step.checks.length > 0 && (
-                        <ul className={styles.scenarioCheckList}>
-                          {step.checks.map((item) => (
-                            <li key={item}>
-                              <span className={styles.scenarioCheckMark}>✓</span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {step.plan.length > 0 && (
-                        <ol className={styles.scenarioPlanList}>
-                          {step.plan.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ol>
-                      )}
-                      {step.tools.length > 0 && (
-                        <details className={styles.scenarioToolDetails}>
-                          <summary>
-                            执行详情
-                            {step.toolStatus === "running"
-                              ? " · 等待回执"
-                              : step.toolStatus === "failed"
-                                ? " · 未通过"
-                                : " · 已确认"}
-                          </summary>
-                          <div className={styles.scenarioToolList}>
-                            {step.tools.map((tool) => (
-                              <div
-                                className={styles.scenarioToolRow}
-                                key={`${tool.name}-${tool.deviceId}`}
-                              >
-                                <div className={styles.scenarioToolHead}>
-                                  <code>{tool.name}</code>
-                                  <span
-                                    className={styles.scenarioToolBadge}
-                                    data-execution={tool.execution}
-                                  >
-                                    {tool.execution === "real"
-                                      ? "真实硬件"
-                                      : "模拟设备"}
-                                  </span>
-                                </div>
-                                <div className={styles.scenarioToolMeta}>
-                                  <span>设备 {tool.deviceId}</span>
-                                  <span>
-                                    参数{" "}
-                                    {Object.keys(tool.parameters).length > 0
-                                      ? JSON.stringify(tool.parameters)
-                                      : "无"}
-                                  </span>
-                                </div>
-                                <div className={styles.scenarioToolReceipt}>
-                                  {tool.status === "running"
-                                    ? "等待设备回执…"
-                                    : (tool.receipt ?? `状态：${tool.status}`)}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className={styles.timelineTitle}>{step.title}</div>
-                      <p className={styles.timelineText}>{step.detail}</p>
-                      <div className={styles.timelineEvidence}>
-                        {step.evidence.map((item) => (
-                          <span key={item}>{item}</span>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {step.status === "active" && (
-                    <span className={styles.activityTimelineProgress}>
-                      {step.toolStatus === "running"
-                        ? "正在等待设备回执"
-                        : ACTIVE_PHASE_COPY[step.phase]}
-                    </span>
-                  )}
-                  {entry.isLatestRun &&
-                    activity.status !== "running" &&
-                    entry.isLastStep && (
-                      <div className={styles.resultActions}>
-                        <button
-                          className={styles.resultPrimaryAction}
-                          type="button"
-                          disabled={
-                            state.connection !== "connected" ||
-                            state.isStartingActivity ||
-                            state.isStarting
-                          }
-                          onClick={relaunch}
-                        >
-                          {activity.status === "failed"
-                            ? "重新尝试控制"
-                            : activity.scenario === "wake_up_blanket"
-                              ? "重新播放"
-                              : "开始新一轮监测"}
-                        </button>
-                        {activity.scenario !== "wake_up_blanket" && (
-                          <button
-                            className={styles.resultSecondaryAction}
-                            type="button"
-                            disabled={
-                              state.connection !== "connected" ||
-                              state.isStarting
-                            }
-                            onClick={() => void restoreNormalState()}
-                          >
-                            {state.isStarting ? "正在恢复" : "恢复正常状态"}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                </article>
-              </div>
-            );
-          })
-        ) : (
-          <div className={styles.timelineItem}>
-            <div className={styles.timelineDot} />
-            <section
-              className={cx(
-                styles.timelineCard,
-                styles.activityTimelineEmpty,
-              )}
-            >
-              <div className={styles.timelineMeta}>
-                <span>连续过程演示</span>
-                <span>尚未开始</span>
-              </div>
-              <div className={styles.timelineTitle}>等待播放连续过程</div>
-              <p className={styles.timelineText}>
-                点击上方按钮后，观察、判断、计划、执行和验证会逐条加入这条时间线。
-              </p>
-              <span className={styles.activityTimelineProgress}>
-                新的观察和判断会随着事件发生继续加入。
-              </span>
-            </section>
-          </div>
-        )}
-      </div>
+      <ActivityTimeline
+        activity={agentActivity}
+        vitalsSteps={vitalsTimelineSteps}
+      />
     </main>
   );
 }

@@ -153,7 +153,7 @@ export function usePreviewRuntime(): CompanionRuntime {
   }, [showNotice]);
 
   const runMockActivityDemo = useCallback(async () => {
-    showNotice("连续思考演示需要连接 Agent 后端");
+    showNotice("连续场景需要连接 Agent 后端");
   }, [showNotice]);
 
   const restoreNormalState = useCallback(async () => {
