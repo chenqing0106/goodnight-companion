@@ -26,6 +26,9 @@ pnpm dev
 如需修改后端地址，复制 `.env.example` 为 `.env.local` 并调整
 `AGENT_BACKEND_URL`。
 
+后台页面、真实传感器、RGB 指示灯和 WS2812B 灯带的完整排查步骤见
+[`docs/admin-hardware-debugging.md`](docs/admin-hardware-debugging.md)。
+
 ## 接口契约
 
 后端运行后，可重新生成 TypeScript 类型：
