@@ -111,13 +111,13 @@ async def test_env_s3_publishes_plain_text_and_waits_for_matching_ack() -> None:
         action_id="act_led",
         device_id="env-s3-01",
         capability="set_led_mode",
-        parameters={"mode": 3},
+        parameters={"mode": 7},
         timeout_ms=500,
     )
 
     collecting = asyncio.create_task(_collect(gateway, command))
     await asyncio.sleep(0)
-    assert published == [("env-s3-01/actuator/led/set", "3", 1, False)]
+    assert published == [("env-s3-01/actuator/led/set", "7", 1, False)]
 
     gateway._on_message(
         gateway._client,
@@ -135,7 +135,7 @@ async def test_env_s3_publishes_plain_text_and_waits_for_matching_ack() -> None:
         None,
         _message(
             "env-s3-01/actuator/led/state",
-            b'{"accepted":true,"command":3,"state":"marquee"}',
+            b'{"accepted":true,"command":7,"state":"mode_7"}',
         ),
     )
     statuses = await collecting
@@ -143,9 +143,9 @@ async def test_env_s3_publishes_plain_text_and_waits_for_matching_ack() -> None:
     assert statuses[-1].status is DeviceCommandStatus.SUCCEEDED
     assert statuses[-1].result == {
         "actuator": "led",
-        "command": 3,
-        "state": "marquee",
-        "facts": {},
+        "command": 7,
+        "state": "mode_7",
+        "facts": {"led_mode": 7},
     }
 
 

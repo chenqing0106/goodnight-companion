@@ -13,13 +13,9 @@ import paho.mqtt.client as mqtt
 _RGB_STATES = {0: "off", 1: "red", 2: "green", 3: "blue"}
 _LED_STATES = {
     0: "off",
-    1: "warm_breathe",
-    2: "cool_breathe",
-    3: "marquee",
-    4: "white",
-    5: "blue_chase",
-    6: "rainbow",
-    7: "auto",
+    7: "mode_7",
+    8: "mode_8",
+    9: "mode_9",
 }
 
 

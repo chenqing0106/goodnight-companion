@@ -29,6 +29,8 @@ class InMemoryDeviceRegistry:
                         "move_phone_to_dock",
                         "turn_off_light",
                         "stop_all_motion",
+                        "set_rgb_indicator",
+                        "set_led_mode",
                     ],
                     capabilities_known=True,
                 )

@@ -85,13 +85,30 @@ class InMemoryDeviceGateway:
         elif command.capability == "turn_off_light":
             result_facts["light_on"] = False
 
+        actuator = None
+        if command.capability == "set_rgb_indicator":
+            actuator = "rgb"
+            result_facts["rgb_indicator_mode"] = command.parameters["mode"]
+        elif command.capability == "set_led_mode":
+            actuator = "led"
+            result_facts["led_mode"] = command.parameters["mode"]
+
+        result: dict[str, object] = {"facts": result_facts}
+        if actuator is not None:
+            result.update(
+                {
+                    "actuator": actuator,
+                    "command": command.parameters["mode"],
+                }
+            )
+
         yield await self._emit(
             DeviceStatus(
                 command_id=command.command_id,
                 device_id=command.device_id,
                 status=DeviceCommandStatus.SUCCEEDED,
                 progress=1,
-                result={"facts": result_facts},
+                result=result,
             )
         )
 

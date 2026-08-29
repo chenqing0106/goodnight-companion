@@ -27,6 +27,7 @@ class WorldState(BaseModel):
     vitals_valid_streak: int = 0
     vitals_reason: str | None = None
     rgb_indicator_mode: int | None = None
+    led_mode: int | None = None
     device_states: dict[str, str] = Field(default_factory=dict)
     device_capabilities: dict[str, list[str]] = Field(default_factory=dict)
     active_action_id: str | None = None

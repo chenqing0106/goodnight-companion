@@ -46,6 +46,8 @@ async def test_health_and_debug_observation() -> None:
         "move_phone_to_dock",
         "turn_off_light",
         "stop_all_motion",
+        "set_rgb_indicator",
+        "set_led_mode",
     ]
     assert [tool["name"] for tool in tools] == [
         "move_phone_to_dock",
@@ -68,6 +70,42 @@ async def test_health_and_debug_observation() -> None:
     ]
     assert state["phone_location"] == "dock"
     assert state["light_on"] is False
+
+
+@pytest.mark.asyncio
+async def test_api_controls_rgb_and_led_modes() -> None:
+    app = create_app(InMemoryDeviceGateway(step_delay=0))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        rgb = await client.post(
+            "/api/devices/mock-arm/control",
+            json={"capability": "set_rgb_indicator", "mode": 2},
+        )
+        led = await client.post(
+            "/api/devices/mock-arm/control",
+            json={"capability": "set_led_mode", "mode": 9},
+        )
+        invalid_rgb = await client.post(
+            "/api/devices/mock-arm/control",
+            json={"capability": "set_rgb_indicator", "mode": 4},
+        )
+        missing = await client.post(
+            "/api/devices/missing/control",
+            json={"capability": "set_led_mode", "mode": 1},
+        )
+        state = (await client.get("/api/state")).json()
+
+    assert rgb.status_code == 200
+    assert rgb.json()["actions"][0]["status"] == "succeeded"
+    assert led.status_code == 200
+    assert led.json()["actions"][0]["status"] == "succeeded"
+    assert invalid_rgb.status_code == 422
+    assert missing.status_code == 404
+    assert state["rgb_indicator_mode"] == 2
+    assert state["led_mode"] == 9
 
 
 @pytest.mark.asyncio

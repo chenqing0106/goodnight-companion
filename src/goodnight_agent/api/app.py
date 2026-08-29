@@ -6,9 +6,11 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.sensor_automation import VitalsSignalAutomation
@@ -20,6 +22,8 @@ from goodnight_agent.devices.mqtt import MqttDeviceGateway
 from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
 from goodnight_agent.domain.models import (
     Action,
+    ActionRequest,
+    Decision,
     DeviceRecord,
     DomainEvent,
     Observation,
@@ -29,7 +33,12 @@ from goodnight_agent.infrastructure.events import InMemoryEventPublisher
 from goodnight_agent.infrastructure.repositories import InMemoryActionRepository
 from goodnight_agent.tools.executor import ToolExecutor
 from goodnight_agent.tools.models import ToolDefinition
-from goodnight_agent.tools.registry import ToolRegistry, build_default_tool_registry
+from goodnight_agent.tools.registry import ToolError, ToolRegistry, build_default_tool_registry
+
+
+class DeviceControlRequest(BaseModel):
+    capability: Literal["set_rgb_indicator", "set_led_mode"]
+    mode: Annotated[int, Field(strict=True, ge=0, le=9)]
 
 
 @dataclass
@@ -186,6 +195,43 @@ def create_app(
         if await services.registry.get_device(device_id) is None:
             raise HTTPException(status_code=404, detail="device not found")
         return await services.gateway.list_sensor_readings(device_id)
+
+    @application.post(
+        "/api/devices/{device_id}/control",
+        response_model=WorkflowResult,
+    )
+    async def control_device(
+        device_id: str,
+        request: DeviceControlRequest,
+    ) -> WorkflowResult:
+        if await services.registry.get_device(device_id) is None:
+            raise HTTPException(status_code=404, detail="device not found")
+        try:
+            parameters = services.tools.validate_arguments(
+                request.capability,
+                {"mode": request.mode},
+            )
+        except ToolError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        observation = Observation(source="admin_control", facts={}, confidence=1)
+        decision = Decision(
+            scene="manual_device_control",
+            should_intervene=True,
+            reason="后台手动控制灯光",
+            confidence=1,
+            proposed_actions=[
+                ActionRequest(
+                    capability=request.capability,
+                    parameters=parameters,
+                    device_id=device_id,
+                )
+            ],
+        )
+        return await services.workflow.process_observation(
+            observation,
+            proposed_decision=decision,
+        )
 
     @application.get("/api/tools", response_model=list[ToolDefinition])
     async def list_tools() -> list[ToolDefinition]:

@@ -143,7 +143,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     parser.add_argument("--strict", action="store_true", help="离线或传感器缺失时返回非零状态")
     parser.add_argument("--rgb-mode", type=int, choices=range(4))
-    parser.add_argument("--led-mode", type=int, choices=range(8))
+    parser.add_argument("--led-mode", type=int, choices=(0, 7, 8, 9))
     try:
         exit_code = asyncio.run(check_connection(parser.parse_args()))
     except TimeoutError:

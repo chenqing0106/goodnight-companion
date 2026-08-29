@@ -45,7 +45,7 @@ class SetRgbIndicatorParameters(BaseModel):
 class SetLedModeParameters(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[int, Field(strict=True, ge=0, le=7)]
+    mode: Literal[0, 7, 8, 9]
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +125,7 @@ def build_default_tool_registry() -> ToolRegistry:
     )
     registry.register(
         name="set_led_mode",
-        description="设置 ENV-S3 灯带模式，取值 0 到 7，0 表示熄灭",
+        description="设置 ENV-S3 灯带模式，可用值为 0、7、8、9，0 表示熄灭",
         risk_level=ToolRiskLevel.PHYSICAL_LOW,
         parameters_model=SetLedModeParameters,
     )

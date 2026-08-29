@@ -20,8 +20,8 @@ from goodnight_agent.domain.models import (
 )
 
 _CAPABILITY_TO_ACTUATOR = {
-    "set_rgb_indicator": ("rgb", 3),
-    "set_led_mode": ("led", 7),
+    "set_rgb_indicator": ("rgb", frozenset({0, 1, 2, 3})),
+    "set_led_mode": ("led", frozenset({0, 7, 8, 9})),
 }
 _SENSOR_UNITS = {
     "temp": "C",
@@ -222,11 +222,9 @@ class EnvS3MqttGateway:
                 message="执行器已切换为关闭模式",
             )
         elif accepted:
-            facts = (
-                {"rgb_indicator_mode": acknowledged_command}
-                if actuator == "rgb"
-                else {}
-            )
+            facts = {
+                "rgb_indicator_mode" if actuator == "rgb" else "led_mode": acknowledged_command
+            }
             status = DeviceStatus(
                 command_id=pending.command.command_id,
                 device_id=self.device_id,
@@ -255,11 +253,11 @@ class EnvS3MqttGateway:
         if command.device_id != self.device_id:
             raise ValueError(f"ENV-S3 gateway only controls {self.device_id}")
         try:
-            actuator, max_mode = _CAPABILITY_TO_ACTUATOR[command.capability]
+            actuator, allowed_modes = _CAPABILITY_TO_ACTUATOR[command.capability]
             mode = command.parameters["mode"]
         except KeyError as exc:
             raise ValueError(f"unsupported ENV-S3 command: {command.capability}") from exc
-        if type(mode) is not int or not 0 <= mode <= max_mode:
+        if type(mode) is not int or mode not in allowed_modes:
             raise ValueError(f"invalid mode for {command.capability}: {mode!r}")
 
         existing = self._statuses.get(command.command_id)
