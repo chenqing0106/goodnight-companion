@@ -81,6 +81,7 @@ class SimpleWorkflow:
         observation: Observation,
         *,
         run_id: str | None = None,
+        proposed_decision: Decision | None = None,
     ) -> WorkflowResult:
         run_id = run_id or new_id("run")
         self.world_state.apply_observation(observation)
@@ -90,7 +91,7 @@ class SimpleWorkflow:
             payload=observation.model_dump(mode="json"),
         )
 
-        decision = self.evaluator.evaluate(self.world_state)
+        decision = proposed_decision or self.evaluator.evaluate(self.world_state)
         if decision is None:
             await self._publish(
                 "decision.skipped",

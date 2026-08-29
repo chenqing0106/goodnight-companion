@@ -157,3 +157,44 @@ async def test_api_can_stop_entire_run_idempotently() -> None:
     assert repeated.status_code == 200
     assert repeated.json()["status"] == "stopped"
     assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_mock_activity_publishes_a_persistent_sequence() -> None:
+    app = create_app(InMemoryDeviceGateway(step_delay=0))
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        started = await client.post(
+            "/api/debug/mock-activity",
+            json={"step_delay_ms": 500},
+        )
+        repeated = await client.post(
+            "/api/debug/mock-activity",
+            json={"step_delay_ms": 500},
+        )
+        await asyncio.sleep(3.2)
+        recent = (await client.get("/api/events/recent", params={"limit": 100})).json()
+        actions = (await client.get("/api/actions")).json()
+        state = (await client.get("/api/state")).json()
+
+    assert started.status_code == 200
+    assert repeated.status_code == 409
+    run_id = started.json()["run_id"]
+    steps = [
+        event
+        for event in recent
+        if event["event_type"] == "activity.step" and event["run_id"] == run_id
+    ]
+    assert [event["payload"]["step_index"] for event in steps] == list(range(1, 8))
+    assert steps[-1]["payload"]["thread_status"] == "completed"
+    assert steps[-1]["payload"]["hardware_control"] is True
+    rgb_actions = [
+        action for action in actions if action["capability"] == "set_rgb_indicator"
+    ]
+    assert len(rgb_actions) == 1
+    assert rgb_actions[0]["parameters"] == {"mode": 3}
+    assert rgb_actions[0]["status"] == "succeeded"
+    assert state["rgb_indicator_mode"] == 3

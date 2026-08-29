@@ -12,6 +12,11 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from goodnight_agent.agent.mock_activity import (
+    MockActivityRequest,
+    MockActivitySimulator,
+    MockActivityStartResult,
+)
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.sensor_automation import VitalsSignalAutomation
 from goodnight_agent.agent.workflow import RunStopResult, SimpleWorkflow, WorkflowResult
@@ -49,6 +54,7 @@ class AppServices:
     gateway: DeviceGateway
     registry: DeviceRegistry
     tools: ToolRegistry
+    mock_activity: MockActivitySimulator
     sensor_automation: VitalsSignalAutomation | None = None
 
 
@@ -80,6 +86,11 @@ def build_services(
         actions=actions,
         evaluator=SceneEvaluator(device_id=device_id),
     )
+    mock_activity = MockActivitySimulator(
+        publisher=events,
+        workflow=workflow,
+        device_id=device_id,
+    )
     sensor_automation = None
     if isinstance(actual_gateway, SensorEventSource) and _environment_flag(
         "GOODNIGHT_SENSOR_AUTOMATION_ENABLED"
@@ -100,6 +111,7 @@ def build_services(
         gateway=actual_gateway,
         registry=actual_registry,
         tools=tool_registry,
+        mock_activity=mock_activity,
         sensor_automation=sensor_automation,
     )
 
@@ -153,6 +165,7 @@ def create_app(
                 automation_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await automation_task
+            await services.mock_activity.close()
             await services.gateway.close()
             if services.registry is not services.gateway:
                 await services.registry.close()
@@ -176,6 +189,18 @@ def create_app(
     @application.post("/api/debug/observations", response_model=WorkflowResult)
     async def submit_observation(observation: Observation) -> WorkflowResult:
         return await services.workflow.process_observation(observation)
+
+    @application.post(
+        "/api/debug/mock-activity",
+        response_model=MockActivityStartResult,
+    )
+    async def start_mock_activity(
+        request: MockActivityRequest,
+    ) -> MockActivityStartResult:
+        try:
+            return await services.mock_activity.start(request)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @application.get("/api/state")
     async def get_state() -> dict[str, object]:
