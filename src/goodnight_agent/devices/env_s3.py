@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,6 +33,21 @@ _SENSOR_UNITS = {
     "spo2": "%",
 }
 
+# 传感器 mock：硬件故障期间由后端在 MQTT 网关层注入模拟读数，
+# 下游（/api/devices/:id/sensors、sensor_automation、world_state）完全无感。
+# 开关：环境变量 GOODNIGHT_ENV_S3_MOCK_SENSORS=1（见 api/app.py 的构建函数）。
+# 基准值: (base, unit, jitter_spread)。真实读数一旦恢复（freshness 窗口内
+# 收到 MQTT sensor 消息），对应传感器自动停止注入，让位给真实数据。
+_MOCK_SENSOR_BASELINES: dict[str, tuple[float, str, float]] = {
+    "temp": (24.0, "C", 0.5),
+    "humidity": (56.0, "%RH", 3.0),
+    "light": (738.0, "adc_count", 40.0),
+    "heart_rate": (68.0, "bpm", 5.0),
+    "spo2": (98.0, "%", 1.0),
+}
+_MOCK_INTERVAL_S = 1.0
+_REAL_READING_FRESH_S = 10.0
+
 
 @dataclass
 class _PendingCommand:
@@ -52,6 +69,7 @@ class EnvS3MqttGateway:
     password: str | None = None
     connect_timeout: float = 5
     registry_wait_timeout: float = 1
+    mock_sensors: bool = False
     _client: mqtt.Client = field(init=False)
     _loop: asyncio.AbstractEventLoop | None = field(default=None, init=False)
     _connected: asyncio.Event = field(default_factory=asyncio.Event, init=False)
@@ -70,6 +88,8 @@ class EnvS3MqttGateway:
     _pending: dict[str, _PendingCommand] = field(default_factory=dict, init=False)
     _commands: dict[str, DeviceCommand] = field(default_factory=dict, init=False)
     _statuses: dict[str, DeviceStatus] = field(default_factory=dict, init=False)
+    _mock_task: asyncio.Task[None] | None = field(default=None, init=False)
+    _real_reading_at: dict[str, float] = field(default_factory=dict, init=False)
 
     def __post_init__(self) -> None:
         self._device = DeviceRecord(
@@ -77,6 +97,13 @@ class EnvS3MqttGateway:
             capabilities=list(_CAPABILITY_TO_ACTUATOR),
             capabilities_known=True,
         )
+        if self.mock_sensors:
+            # mock 模式下设备直接呈在线，否则 SafetyPolicy 的 device_online
+            # 检查会卡住 vitals 链路（set_rgb_indicator 无法下发）。
+            # 注意：此期间 admin 页看到的“设备在线”也是模拟态。
+            self._device = self._device.model_copy(
+                update={"availability": DeviceAvailability.ONLINE}
+            )
         self._client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=f"goodnight-env-s3-{new_id('client')}",
@@ -100,6 +127,32 @@ class EnvS3MqttGateway:
                 self._client.loop_start()
                 self._loop_started = True
             await asyncio.wait_for(self._connected.wait(), timeout=self.connect_timeout)
+            if self.mock_sensors and self._mock_task is None:
+                self._mock_task = asyncio.create_task(self._mock_sensor_loop())
+
+    def _note_real_reading(self, sensor: str) -> None:
+        self._real_reading_at[sensor] = time.monotonic()
+
+    async def _mock_sensor_loop(self) -> None:
+        while True:
+            now = time.monotonic()
+            ts_ms = int(now * 1000)
+            for sensor, (base, unit, spread) in _MOCK_SENSOR_BASELINES.items():
+                last_real = self._real_reading_at.get(sensor)
+                if last_real is not None and now - last_real < _REAL_READING_FRESH_S:
+                    continue  # 真实硬件已恢复该传感器，让位给真实数据
+                self._store_reading(
+                    SensorReading(
+                        device_id=self.device_id,
+                        sensor=sensor,  # type: ignore[arg-type]
+                        value=round(base + random.uniform(-spread, spread), 1),
+                        unit=unit,
+                        valid=True,
+                        ts_ms=ts_ms,
+                        error=None,
+                    )
+                )
+            await asyncio.sleep(_MOCK_INTERVAL_S)
 
     def _topic(self, suffix: str) -> str:
         return f"{self.device_id}/{suffix}"
@@ -156,6 +209,7 @@ class EnvS3MqttGateway:
             sensor = suffix.removeprefix("sensor/")
             reading = self._parse_sensor(sensor, payload)
             if reading is not None:
+                self._loop.call_soon_threadsafe(self._note_real_reading, sensor)
                 self._loop.call_soon_threadsafe(self._store_reading, reading)
             return
 
@@ -183,6 +237,9 @@ class EnvS3MqttGateway:
             return None
 
     def _set_availability(self, availability: DeviceAvailability) -> None:
+        if self.mock_sensors and availability is not DeviceAvailability.ONLINE:
+            # mock 模式下真实硬件的 offline/unknown 不覆盖模拟在线状态
+            availability = DeviceAvailability.ONLINE
         self._device = self._device.model_copy(
             update={"availability": availability, "updated_at": utc_now()}
         )
@@ -263,6 +320,27 @@ class EnvS3MqttGateway:
         existing = self._statuses.get(command.command_id)
         if existing is not None and existing.status.terminal:
             yield existing
+            return
+
+        if self.mock_sensors:
+            # mock 模式：不下发 MQTT，直接回执成功并写入 facts，
+            # 让 vitals 链路（set_rgb_indicator）在硬件故障时也能走完。
+            status = DeviceStatus(
+                command_id=command.command_id,
+                device_id=self.device_id,
+                status=DeviceCommandStatus.SUCCEEDED,
+                progress=1,
+                result={
+                    "actuator": actuator,
+                    "command": mode,
+                    "state": "mocked",
+                    "facts": {
+                        "rgb_indicator_mode" if actuator == "rgb" else "led_mode": mode
+                    },
+                },
+            )
+            self._statuses[status.command_id] = status
+            yield status
             return
 
         lock = self._actuator_locks.setdefault(actuator, asyncio.Lock())
@@ -364,6 +442,9 @@ class EnvS3MqttGateway:
             raise RuntimeError(f"MQTT stop publish failed with rc={info.rc}")
 
     async def close(self) -> None:
+        if self._mock_task is not None:
+            self._mock_task.cancel()
+            self._mock_task = None
         self._client.disconnect()
         if self._loop_started:
             self._client.loop_stop()

@@ -24,6 +24,11 @@ def test_default_tool_registry_exposes_high_level_device_tools() -> None:
         "turn_on_light",
         "pull_blanket",
         "reset_arm",
+        "arm_take_phone",
+        "arm_shake_toy",
+        "arm_pull_blanket",
+        "arm_insert_item",
+        "arm_storytelling",
     ]
     assert definitions[0].input_schema["properties"]["speed_profile"]["default"] == ("night_slow")
 

@@ -27,12 +27,21 @@ from goodnight_agent.domain.models import (
     DeviceStatus,
 )
 
-# 一次性动作：能力名 -> ASUS 场景名（触发后自动运行到结束并回落）
+# 一次性动作：能力名 -> (场景名, 触发路径)。
+# blanket01/insert02 有契约约定的应用层路由；take_phone02/shake_toy02 在 ASUS 上
+# 没有 application 路由（404），走通用回放接口 /api/scenes/{scene}/replay。
 ONE_SHOT_SCENES: dict[str, str] = {
     "arm_take_phone": "take_phone02",
     "arm_shake_toy": "shake_toy02",
     "arm_pull_blanket": "blanket01",
     "arm_insert_item": "insert02",
+}
+
+ONE_SHOT_TRIGGER_PATHS: dict[str, str] = {
+    "arm_take_phone": "/api/scenes/take_phone02/replay",
+    "arm_shake_toy": "/api/scenes/shake_toy02/replay",
+    "arm_pull_blanket": "/api/application/blanket01/run",
+    "arm_insert_item": "/api/application/insert02/run",
 }
 
 # 持续动作（讲故事）：start 后持续运行，必须显式 stop
@@ -56,6 +65,8 @@ class RobotArmHttpGateway:
     device_id: str = "panthera-arm"
     poll_interval: float = 1.0
     request_timeout: float = 5.0
+    # 触发（run/start/stop）单独放宽：实测 ASUS 在启动场景时可能超过 5 秒才回 202
+    trigger_timeout: float = 30.0
     client: httpx.AsyncClient | None = None
     statuses: dict[str, DeviceStatus] = field(default_factory=dict)
     _stop_events: dict[str, asyncio.Event] = field(default_factory=dict)
@@ -98,7 +109,11 @@ class RobotArmHttpGateway:
             )
             return
 
-        error_code, message = await self._trigger(f"/api/application/{scene}/run")
+        error_code, message = await self._trigger_with_confirm(
+            ONE_SHOT_TRIGGER_PATHS[command.capability],
+            scene=scene,
+            continuous=False,
+        )
         if error_code is not None:
             yield await self._emit(self._failure(command, error_code, message or ""))
             return
@@ -185,7 +200,11 @@ class RobotArmHttpGateway:
         scene = CONTINUOUS_SCENES[command.capability]
         started = False
         try:
-            error_code, message = await self._trigger(f"/api/application/{scene}/start")
+            error_code, message = await self._trigger_with_confirm(
+                f"/api/application/{scene}/start",
+                scene=scene,
+                continuous=True,
+            )
             if error_code is not None:
                 yield await self._emit(self._failure(command, error_code, message or ""))
                 return
@@ -261,9 +280,10 @@ class RobotArmHttpGateway:
     async def _trigger(self, path: str) -> tuple[str | None, str | None]:
         """POST 场景触发接口。返回 (error_code, message)，全 None 表示已接受。"""
         try:
-            response = await self._http().post(path)
+            response = await self._http().post(path, timeout=self.trigger_timeout)
         except httpx.HTTPError as exc:
-            return "ARM_UNREACHABLE", f"机械臂服务连接失败：{exc}"
+            detail = str(exc) or type(exc).__name__
+            return "ARM_UNREACHABLE", f"机械臂服务连接失败：{detail}"
         if response.status_code == 202:
             return None, None
         if response.status_code == 404:
@@ -273,6 +293,36 @@ class RobotArmHttpGateway:
         if response.status_code >= 500:
             return "ARM_SERVICE_ERROR", f"机械臂服务异常，HTTP {response.status_code}"
         return "ARM_UNEXPECTED_RESPONSE", f"机械臂服务返回 HTTP {response.status_code}"
+
+    async def _trigger_with_confirm(
+        self,
+        path: str,
+        *,
+        scene: str,
+        continuous: bool,
+    ) -> tuple[str | None, str | None]:
+        """触发场景；POST 超时/失败时回查状态，避免"实际已启动却报失败"。"""
+        error_code, message = await self._trigger(path)
+        if error_code != "ARM_UNREACHABLE":
+            return error_code, message
+        await asyncio.sleep(1)
+        try:
+            if continuous:
+                response = await self._http().get(f"/api/application/{scene}/status")
+                response.raise_for_status()
+                payload = response.json()
+                running = isinstance(payload, dict) and bool(payload.get("running"))
+            else:
+                payload = await self._arm_status()
+                running = bool(payload.get("running")) and payload.get("scene") in {
+                    scene,
+                    None,
+                }
+        except (httpx.HTTPError, ValueError):
+            return error_code, message
+        if running:
+            return None, None
+        return error_code, message
 
     async def _arm_status(self) -> dict[str, object]:
         response = await self._http().get("/api/status")

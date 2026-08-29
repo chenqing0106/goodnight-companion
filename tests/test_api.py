@@ -64,6 +64,11 @@ async def test_health_and_debug_observation() -> None:
         "turn_on_light",
         "pull_blanket",
         "reset_arm",
+        "arm_take_phone",
+        "arm_shake_toy",
+        "arm_pull_blanket",
+        "arm_insert_item",
+        "arm_storytelling",
     ]
     assert response.status_code == 200
     assert automation == {
