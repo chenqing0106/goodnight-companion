@@ -6,7 +6,10 @@ import type {
   AgentWorldState,
   AgentEvent,
   AutomationStatus,
+  MockActivityScenario,
   MockActivityStartResult,
+  MockActivityStatus,
+  MockActivityStopResult,
   RunStopResult,
   SensorReading,
   WorkflowResult,
@@ -130,18 +133,45 @@ export function parseAgentEvent(value: unknown): AgentEvent | null {
   return isAgentEvent(value) ? value : null;
 }
 
-export async function startMockActivity(): Promise<MockActivityStartResult> {
+export interface StartScenarioOptions {
+  scenario?: MockActivityScenario;
+  speed?: number;
+  stepDelayMs?: number;
+}
+
+export async function startMockActivity(
+  options: StartScenarioOptions = {},
+): Promise<MockActivityStartResult> {
   const { data, error, response } = await client.POST(
     "/api/debug/mock-activity",
     {
       body: {
-        scenario: "temperature_cooling",
-        step_delay_ms: 2200,
+        scenario: options.scenario ?? "temperature_cooling",
+        step_delay_ms: options.stepDelayMs ?? 2200,
+        speed: options.speed ?? 1,
       },
     },
   );
   if (error || !data) {
     throw requestError("启动连续思考演示", response, error);
+  }
+  return data;
+}
+
+export async function stopMockActivity(): Promise<MockActivityStopResult> {
+  const { data, error, response } = await client.POST(
+    "/api/debug/mock-activity/stop",
+  );
+  if (error || !data) {
+    throw requestError("停止场景演示", response, error);
+  }
+  return data;
+}
+
+export async function getMockActivityStatus(): Promise<MockActivityStatus> {
+  const { data, error, response } = await client.GET("/api/debug/mock-activity");
+  if (error || !data) {
+    throw requestError("读取场景状态", response, error);
   }
   return data;
 }

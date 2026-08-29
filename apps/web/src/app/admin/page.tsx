@@ -8,6 +8,13 @@ import styles from "./page.module.css";
 type SensorName = "temp" | "humidity" | "light" | "heart_rate" | "spo2";
 type Availability = "unknown" | "online" | "offline";
 type LightCapability = "set_rgb_indicator" | "set_led_mode";
+type ScenarioId = "wake_up_blanket" | "temperature_cooling";
+
+interface ScenarioStatus {
+  running: boolean;
+  run_id: string | null;
+  scenario: string | null;
+}
 
 interface SensorReading {
   device_id: string;
@@ -81,6 +88,13 @@ const RAIL_COLORS = [
   "#f2b56b",
 ];
 
+const SCENARIOS: Array<{ id: ScenarioId; label: string; hint: string }> = [
+  { id: "wake_up_blanket", label: "F5 · 渐进唤醒", hint: "提醒 → 开灯 → 拉被 → 复位" },
+  { id: "temperature_cooling", label: "睡前温度调节", hint: "连续测温 → 降温指示" },
+];
+
+const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
+
 function detailFromPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const detail = (payload as Record<string, unknown>).detail;
@@ -126,6 +140,11 @@ export default function AdminPage() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [pending, setPending] = useState<LightCapability | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [scenario, setScenario] = useState<ScenarioId>("wake_up_blanket");
+  const [speed, setSpeed] = useState<number>(1);
+  const [scenarioStatus, setScenarioStatus] = useState<ScenarioStatus | null>(null);
+  const [scenarioPending, setScenarioPending] = useState(false);
+  const [scenarioFeedback, setScenarioFeedback] = useState<Feedback | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -133,9 +152,10 @@ export default function AdminPage() {
 
     async function poll() {
       try {
-        const [devices, state] = await Promise.all([
+        const [devices, state, activity] = await Promise.all([
           requestJson<DeviceRecord[]>("/api/devices"),
           requestJson<HardwareState>("/api/state"),
+          requestJson<ScenarioStatus>("/api/debug/mock-activity"),
         ]);
         if (disposed) return;
 
@@ -145,6 +165,7 @@ export default function AdminPage() {
         setHardware(state);
         setDeviceId(device?.device_id ?? null);
         setAvailability(device?.availability ?? "unknown");
+        setScenarioStatus(activity);
 
         if (device) {
           const sensorResponse = await requestJson<SensorReading[]>(
@@ -215,6 +236,48 @@ export default function AdminPage() {
       });
     } finally {
       setPending(null);
+    }
+  }
+
+  async function startScenario() {
+    if (scenarioPending || scenarioStatus?.running) return;
+    setScenarioPending(true);
+    setScenarioFeedback(null);
+    try {
+      await requestJson("/api/debug/mock-activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scenario,
+          speed,
+          step_delay_ms: 2200,
+        }),
+      });
+      setScenarioFeedback({ tone: "success", message: "场景已启动，前台时间线会自动播放" });
+    } catch (error) {
+      setScenarioFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "场景启动失败",
+      });
+    } finally {
+      setScenarioPending(false);
+    }
+  }
+
+  async function stopScenario() {
+    if (scenarioPending || !scenarioStatus?.running) return;
+    setScenarioPending(true);
+    setScenarioFeedback(null);
+    try {
+      await requestJson("/api/debug/mock-activity/stop", { method: "POST" });
+      setScenarioFeedback({ tone: "success", message: "已发送停止，机械臂会模拟复位" });
+    } catch (error) {
+      setScenarioFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "停止失败",
+      });
+    } finally {
+      setScenarioPending(false);
     }
   }
 
@@ -377,6 +440,87 @@ export default function AdminPage() {
             ) : null}
           </section>
         </div>
+
+        <section className={`${styles.panel} ${styles.scenarioPanel}`}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <span>SCENARIO DEMO</span>
+              <h2>场景演示</h2>
+            </div>
+            <small>
+              {scenarioStatus?.running
+                ? `运行中 · ${scenarioStatus.run_id ?? ""}`
+                : "空闲"}
+            </small>
+          </div>
+
+          <div className={styles.scenarioControls}>
+            <div className={styles.scenarioOptions}>
+              {SCENARIOS.map((item) => (
+                <button
+                  aria-pressed={scenario === item.id}
+                  className={styles.scenarioOption}
+                  disabled={scenarioStatus?.running || scenarioPending}
+                  key={item.id}
+                  onClick={() => setScenario(item.id)}
+                  type="button"
+                >
+                  <strong>{item.label}</strong>
+                  <span>{item.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.scenarioFooter}>
+              <label className={styles.speedSelect}>
+                演示速度
+                <select
+                  disabled={scenarioStatus?.running || scenarioPending}
+                  onChange={(event) => setSpeed(Number(event.target.value))}
+                  value={speed}
+                >
+                  {SPEED_OPTIONS.map((value) => (
+                    <option key={value} value={value}>
+                      {value}x
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className={styles.scenarioActions}>
+                {scenarioStatus?.running ? (
+                  <button
+                    className={styles.scenarioStopButton}
+                    disabled={scenarioPending}
+                    onClick={() => void stopScenario()}
+                    type="button"
+                  >
+                    停止
+                  </button>
+                ) : (
+                  <button
+                    className={styles.scenarioStartButton}
+                    disabled={scenarioPending}
+                    onClick={() => void startScenario()}
+                    type="button"
+                  >
+                    {scenarioPending ? "正在启动" : "开始 / 重新播放"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {scenarioFeedback ? (
+              <div
+                className={styles.feedback}
+                data-tone={scenarioFeedback.tone}
+                role="status"
+              >
+                {scenarioFeedback.message}
+              </div>
+            ) : null}
+          </div>
+        </section>
       </div>
     </main>
   );

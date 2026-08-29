@@ -440,6 +440,14 @@ export function TonightPage({
             }
 
             const { activity, step } = entry;
+            const isScenarioStep = step.clock !== null || step.kind !== "narrative";
+            const relaunch = () =>
+              void runMockActivityDemo(
+                activity.scenario === "wake_up_blanket" ||
+                  activity.scenario === "temperature_cooling"
+                  ? { scenario: activity.scenario }
+                  : undefined,
+              );
             return (
               <div
                 className={styles.timelineItem}
@@ -468,26 +476,102 @@ export function TonightPage({
                     activity.status === "completed" &&
                       entry.isLastStep &&
                       styles.activityResultCard,
-                    activity.status === "failed" &&
+                    (activity.status === "failed" ||
+                      activity.status === "stopped") &&
                       entry.isLastStep &&
                       styles.activityFailedCard,
                   )}
                   aria-current={step.status === "active" ? "step" : undefined}
                 >
                   <div className={styles.timelineMeta}>
-                    <span>{step.phaseLabel}</span>
-                    <time>{eventTime(step.timestamp)}</time>
+                    <span>
+                      {isScenarioStep ? activity.subject : step.phaseLabel}
+                    </span>
+                    <time>{step.clock ?? eventTime(step.timestamp)}</time>
                   </div>
-                  <div className={styles.timelineTitle}>{step.title}</div>
-                  <p className={styles.timelineText}>{step.detail}</p>
-                  <div className={styles.timelineEvidence}>
-                    {step.evidence.map((item) => (
-                      <span key={item}>{item}</span>
-                    ))}
-                  </div>
+                  {isScenarioStep ? (
+                    <>
+                      <p className={styles.timelineText}>{step.detail}</p>
+                      {step.checks.length > 0 && (
+                        <ul className={styles.scenarioCheckList}>
+                          {step.checks.map((item) => (
+                            <li key={item}>
+                              <span className={styles.scenarioCheckMark}>✓</span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {step.plan.length > 0 && (
+                        <ol className={styles.scenarioPlanList}>
+                          {step.plan.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ol>
+                      )}
+                      {step.tools.length > 0 && (
+                        <details className={styles.scenarioToolDetails}>
+                          <summary>
+                            执行详情
+                            {step.toolStatus === "running"
+                              ? " · 等待回执"
+                              : step.toolStatus === "failed"
+                                ? " · 未通过"
+                                : " · 已确认"}
+                          </summary>
+                          <div className={styles.scenarioToolList}>
+                            {step.tools.map((tool) => (
+                              <div
+                                className={styles.scenarioToolRow}
+                                key={`${tool.name}-${tool.deviceId}`}
+                              >
+                                <div className={styles.scenarioToolHead}>
+                                  <code>{tool.name}</code>
+                                  <span
+                                    className={styles.scenarioToolBadge}
+                                    data-execution={tool.execution}
+                                  >
+                                    {tool.execution === "real"
+                                      ? "真实硬件"
+                                      : "模拟设备"}
+                                  </span>
+                                </div>
+                                <div className={styles.scenarioToolMeta}>
+                                  <span>设备 {tool.deviceId}</span>
+                                  <span>
+                                    参数{" "}
+                                    {Object.keys(tool.parameters).length > 0
+                                      ? JSON.stringify(tool.parameters)
+                                      : "无"}
+                                  </span>
+                                </div>
+                                <div className={styles.scenarioToolReceipt}>
+                                  {tool.status === "running"
+                                    ? "等待设备回执…"
+                                    : (tool.receipt ?? `状态：${tool.status}`)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className={styles.timelineTitle}>{step.title}</div>
+                      <p className={styles.timelineText}>{step.detail}</p>
+                      <div className={styles.timelineEvidence}>
+                        {step.evidence.map((item) => (
+                          <span key={item}>{item}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   {step.status === "active" && (
                     <span className={styles.activityTimelineProgress}>
-                      {ACTIVE_PHASE_COPY[step.phase]}
+                      {step.toolStatus === "running"
+                        ? "正在等待设备回执"
+                        : ACTIVE_PHASE_COPY[step.phase]}
                     </span>
                   )}
                   {entry.isLatestRun &&
@@ -502,22 +586,27 @@ export function TonightPage({
                             state.isStartingActivity ||
                             state.isStarting
                           }
-                          onClick={() => void runMockActivityDemo()}
+                          onClick={relaunch}
                         >
                           {activity.status === "failed"
                             ? "重新尝试控制"
-                            : "开始新一轮监测"}
+                            : activity.scenario === "wake_up_blanket"
+                              ? "重新播放"
+                              : "开始新一轮监测"}
                         </button>
-                        <button
-                          className={styles.resultSecondaryAction}
-                          type="button"
-                          disabled={
-                            state.connection !== "connected" || state.isStarting
-                          }
-                          onClick={() => void restoreNormalState()}
-                        >
-                          {state.isStarting ? "正在恢复" : "恢复正常状态"}
-                        </button>
+                        {activity.scenario !== "wake_up_blanket" && (
+                          <button
+                            className={styles.resultSecondaryAction}
+                            type="button"
+                            disabled={
+                              state.connection !== "connected" ||
+                              state.isStarting
+                            }
+                            onClick={() => void restoreNormalState()}
+                          >
+                            {state.isStarting ? "正在恢复" : "恢复正常状态"}
+                          </button>
+                        )}
                       </div>
                     )}
                 </article>

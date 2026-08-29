@@ -502,3 +502,101 @@
     transition: none;
   }
 }
+
+.scenarioPanel {
+  margin-top: 22px;
+}
+
+.scenarioControls {
+  display: grid;
+  gap: 16px;
+}
+
+.scenarioOptions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.scenarioOption {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenarioOption strong {
+  color: var(--paper);
+  font-size: 13px;
+}
+
+.scenarioOption span {
+  font-size: 11px;
+}
+
+.scenarioOption[aria-pressed="true"] {
+  border-color: var(--cyan);
+  background: rgba(75, 199, 199, 0.08);
+}
+
+.scenarioOption:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.scenarioFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.speedSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.speedSelect select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--paper);
+  background: var(--night);
+}
+
+.scenarioActions {
+  display: flex;
+  gap: 10px;
+}
+
+.scenarioStartButton,
+.scenarioStopButton {
+  border: 1px solid var(--cyan);
+  border-radius: 8px;
+  padding: 9px 18px;
+  color: var(--night);
+  background: var(--cyan);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scenarioStopButton {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.scenarioStartButton:disabled,
+.scenarioStopButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

@@ -10,6 +10,7 @@ import {
   startMockActivity,
   startPickupDemo,
   stopAgentRun,
+  type StartScenarioOptions,
 } from "../api/client";
 import { subscribeAgentEvents } from "../api/events";
 import {
@@ -105,18 +106,21 @@ export function useAgentRuntime() {
     }
   }, [refresh]);
 
-  const runMockActivityDemo = useCallback(async () => {
-    dispatch({ type: "activity_starting", active: true });
-    dispatch({ type: "trace_error", message: null });
-    try {
-      await startMockActivity();
-      await hydrateActivity();
-    } catch (error) {
-      dispatch({ type: "trace_error", message: errorMessage(error) });
-    } finally {
-      dispatch({ type: "activity_starting", active: false });
-    }
-  }, [hydrateActivity]);
+  const runMockActivityDemo = useCallback(
+    async (options?: StartScenarioOptions) => {
+      dispatch({ type: "activity_starting", active: true });
+      dispatch({ type: "trace_error", message: null });
+      try {
+        await startMockActivity(options);
+        await hydrateActivity();
+      } catch (error) {
+        dispatch({ type: "trace_error", message: errorMessage(error) });
+      } finally {
+        dispatch({ type: "activity_starting", active: false });
+      }
+    },
+    [hydrateActivity],
+  );
 
   const restoreNormalState = useCallback(async () => {
     dispatch({ type: "starting", active: true });

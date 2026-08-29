@@ -7,6 +7,11 @@ export type WorkflowResult = components["schemas"]["WorkflowResult"];
 export type RunStopResult = components["schemas"]["RunStopResult"];
 export type MockActivityStartResult =
   components["schemas"]["MockActivityStartResult"];
+export type MockActivityStopResult =
+  components["schemas"]["MockActivityStopResult"];
+export type MockActivityStatus = components["schemas"]["MockActivityStatus"];
+export type MockActivityScenario =
+  components["schemas"]["MockActivityRequest"]["scenario"];
 
 export type SensorName = components["schemas"]["SensorReading"]["sensor"];
 

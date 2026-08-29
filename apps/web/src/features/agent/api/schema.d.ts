@@ -45,10 +45,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Mock Activity Status */
+        get: operations["mock_activity_status_api_debug_mock_activity_get"];
         put?: never;
         /** Start Mock Activity */
         post: operations["start_mock_activity_api_debug_mock_activity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debug/mock-activity/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Mock Activity */
+        post: operations["stop_mock_activity_api_debug_mock_activity_stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -100,6 +118,23 @@ export interface paths {
         get: operations["list_sensor_readings_api_devices__device_id__sensors_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/devices/{device_id}/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Control Device */
+        post: operations["control_device_api_devices__device_id__control_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -339,6 +374,16 @@ export interface components {
          * @enum {string}
          */
         DeviceAvailability: "unknown" | "online" | "offline";
+        /** DeviceControlRequest */
+        DeviceControlRequest: {
+            /**
+             * Capability
+             * @enum {string}
+             */
+            capability: "set_rgb_indicator" | "set_led_mode";
+            /** Mode */
+            mode: number;
+        };
         /** DeviceRecord */
         DeviceRecord: {
             /** Device Id */
@@ -390,14 +435,19 @@ export interface components {
             /**
              * Scenario
              * @default temperature_cooling
-             * @constant
+             * @enum {string}
              */
-            scenario: "temperature_cooling";
+            scenario: "temperature_cooling" | "wake_up_blanket";
             /**
              * Step Delay Ms
              * @default 2200
              */
             step_delay_ms: number;
+            /**
+             * Speed
+             * @default 1
+             */
+            speed: number;
         };
         /** MockActivityStartResult */
         MockActivityStartResult: {
@@ -405,6 +455,11 @@ export interface components {
             run_id: string;
             /** Monitor Id */
             monitor_id: string;
+            /**
+             * Scenario
+             * @default temperature_cooling
+             */
+            scenario: string;
             /**
              * Status
              * @default running
@@ -415,6 +470,25 @@ export interface components {
             total_steps: number;
             /** Step Delay Ms */
             step_delay_ms: number;
+        };
+        /** MockActivityStatus */
+        MockActivityStatus: {
+            /** Running */
+            running: boolean;
+            /** Run Id */
+            run_id?: string | null;
+            /** Scenario */
+            scenario?: string | null;
+        };
+        /** MockActivityStopResult */
+        MockActivityStopResult: {
+            /** Run Id */
+            run_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "stopped" | "not_running";
         };
         /** Observation */
         Observation: {
@@ -575,6 +649,26 @@ export interface operations {
             };
         };
     };
+    mock_activity_status_api_debug_mock_activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockActivityStatus"];
+                };
+            };
+        };
+    };
     start_mock_activity_api_debug_mock_activity_post: {
         parameters: {
             query?: never;
@@ -604,6 +698,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_mock_activity_api_debug_mock_activity_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockActivityStopResult"];
                 };
             };
         };
@@ -668,6 +782,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SensorReading"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    control_device_api_devices__device_id__control_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceControlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowResult"];
                 };
             };
             /** @description Validation Error */

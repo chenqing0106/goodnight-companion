@@ -871,3 +871,101 @@
     animation: none;
   }
 }
+
+.scenarioCheckList {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scenarioCheckList li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.scenarioCheckMark {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.scenarioPlanList {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.scenarioToolDetails {
+  margin-top: 9px;
+  border-top: 1px dashed var(--line);
+  padding-top: 7px;
+}
+
+.scenarioToolDetails summary {
+  cursor: pointer;
+  color: color-mix(in srgb, var(--ink) 62%, var(--muted));
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.scenarioToolList {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.scenarioToolRow {
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.scenarioToolHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scenarioToolHead code {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.scenarioToolBadge {
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 8px;
+  color: #fff8f3;
+  background: var(--accent);
+}
+
+.scenarioToolBadge[data-execution="simulated"] {
+  color: color-mix(in srgb, var(--ink) 70%, var(--muted));
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.scenarioToolMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.scenarioToolReceipt {
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted));
+  font-size: 9px;
+  line-height: 1.5;
+}
