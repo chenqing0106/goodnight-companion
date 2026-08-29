@@ -21,6 +21,9 @@ def test_default_tool_registry_exposes_high_level_device_tools() -> None:
         "stop_all_motion",
         "set_rgb_indicator",
         "set_led_mode",
+        "turn_on_light",
+        "pull_blanket",
+        "reset_arm",
     ]
     assert definitions[0].input_schema["properties"]["speed_profile"]["default"] == ("night_slow")
 

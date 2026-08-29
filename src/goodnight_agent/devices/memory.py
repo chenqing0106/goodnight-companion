@@ -84,6 +84,12 @@ class InMemoryDeviceGateway:
             result_facts["phone_location"] = "dock"
         elif command.capability == "turn_off_light":
             result_facts["light_on"] = False
+        elif command.capability == "turn_on_light":
+            result_facts["light_on"] = True
+        elif command.capability == "pull_blanket":
+            result_facts["blanket_position"] = "pulled"
+        elif command.capability == "reset_arm":
+            result_facts["arm_state"] = "reset"
 
         actuator = None
         if command.capability == "set_rgb_indicator":

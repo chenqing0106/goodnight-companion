@@ -31,6 +31,27 @@ class ResultVerifier:
             reason = "灯光已关闭" if verified else "未确认灯光关闭"
             return VerificationResult(verified=verified, reason=reason)
 
+        simulated_facts = {
+            "turn_on_light": ("light_on", True),
+            "pull_blanket": ("blanket_position", "pulled"),
+            "reset_arm": ("arm_state", "reset"),
+        }
+        if action.capability in simulated_facts:
+            key, expected = simulated_facts[action.capability]
+            facts = (device_result or {}).get("facts", {})
+            verified = isinstance(facts, dict) and facts.get(key) == expected
+            label = {
+                "turn_on_light": "灯光",
+                "pull_blanket": "拉被",
+                "reset_arm": "机械臂复位",
+            }[action.capability]
+            reason = (
+                f"模拟设备已确认{label}完成"
+                if verified
+                else f"模拟设备回执未确认{label}完成"
+            )
+            return VerificationResult(verified=verified, reason=reason)
+
         expected_actuator = {
             "set_rgb_indicator": "rgb",
             "set_led_mode": "led",

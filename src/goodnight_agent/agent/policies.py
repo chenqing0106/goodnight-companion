@@ -18,7 +18,9 @@ class PermissionPolicy:
             "swing_toy": PermissionMode.ASK,
             "set_rgb_indicator": PermissionMode.AUTOMATIC,
             "set_led_mode": PermissionMode.AUTOMATIC,
-            "pull_blanket": PermissionMode.FORBIDDEN,
+            "turn_on_light": PermissionMode.AUTOMATIC,
+            "pull_blanket": PermissionMode.AUTOMATIC,
+            "reset_arm": PermissionMode.AUTOMATIC,
         }
     )
 

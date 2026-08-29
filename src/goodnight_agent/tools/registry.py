@@ -48,6 +48,12 @@ class SetLedModeParameters(BaseModel):
     mode: Literal[0, 7, 8, 9]
 
 
+class PullBlanketParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    speed_profile: Literal["gentle", "normal"] = "gentle"
+
+
 @dataclass(frozen=True, slots=True)
 class RegisteredTool:
     definition: ToolDefinition
@@ -128,5 +134,23 @@ def build_default_tool_registry() -> ToolRegistry:
         description="设置 ENV-S3 灯带模式，可用值为 0、7、8、9，0 表示熄灭",
         risk_level=ToolRiskLevel.PHYSICAL_LOW,
         parameters_model=SetLedModeParameters,
+    )
+    registry.register(
+        name="turn_on_light",
+        description="打开卧室灯光（模拟设备）",
+        risk_level=ToolRiskLevel.PHYSICAL_LOW,
+        parameters_model=NoParameters,
+    )
+    registry.register(
+        name="pull_blanket",
+        description="缓慢拉动预设被角（模拟设备）",
+        risk_level=ToolRiskLevel.PHYSICAL_HIGH,
+        parameters_model=PullBlanketParameters,
+    )
+    registry.register(
+        name="reset_arm",
+        description="停止拉动并让机械臂回到安全复位位置（模拟设备）",
+        risk_level=ToolRiskLevel.PHYSICAL_HIGH,
+        parameters_model=NoParameters,
     )
     return registry

@@ -13,9 +13,13 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from goodnight_agent.agent.mock_activity import (
+    SIMULATED_TOOL_NAMES,
     MockActivityRequest,
     MockActivitySimulator,
     MockActivityStartResult,
+    MockActivityStatus,
+    MockActivityStopResult,
+    simulated_device_record,
 )
 from goodnight_agent.agent.scene_evaluator import SceneEvaluator
 from goodnight_agent.agent.sensor_automation import VitalsSignalAutomation
@@ -24,7 +28,12 @@ from goodnight_agent.devices.base import DeviceGateway, SensorEventSource, Senso
 from goodnight_agent.devices.env_s3 import EnvS3MqttGateway
 from goodnight_agent.devices.memory import InMemoryDeviceGateway
 from goodnight_agent.devices.mqtt import MqttDeviceGateway
-from goodnight_agent.devices.registry import DeviceRegistry, InMemoryDeviceRegistry
+from goodnight_agent.devices.registry import (
+    DeviceRegistry,
+    InMemoryDeviceRegistry,
+    OverlayDeviceRegistry,
+)
+from goodnight_agent.devices.router import CapabilityGatewayRouter
 from goodnight_agent.domain.models import (
     Action,
     ActionRequest,
@@ -55,7 +64,32 @@ class AppServices:
     registry: DeviceRegistry
     tools: ToolRegistry
     mock_activity: MockActivitySimulator
+    simulated_gateway: InMemoryDeviceGateway
     sensor_automation: VitalsSignalAutomation | None = None
+
+
+def _build_registry(
+    actual_gateway: DeviceGateway,
+    registry: DeviceRegistry | None,
+    device_id: str,
+) -> DeviceRegistry:
+    sim_record = simulated_device_record()
+    if registry is None:
+        if isinstance(actual_gateway, (MqttDeviceGateway, EnvS3MqttGateway)):
+            return OverlayDeviceRegistry(
+                primary=actual_gateway,
+                overlay=InMemoryDeviceRegistry({sim_record.device_id: sim_record}),
+            )
+        memory_registry = InMemoryDeviceRegistry.with_mock_device(device_id)
+        memory_registry.devices[sim_record.device_id] = sim_record
+        return memory_registry
+    if isinstance(registry, InMemoryDeviceRegistry):
+        registry.devices.setdefault(sim_record.device_id, sim_record)
+        return registry
+    return OverlayDeviceRegistry(
+        primary=registry,
+        overlay=InMemoryDeviceRegistry({sim_record.device_id: sim_record}),
+    )
 
 
 def build_services(
@@ -68,20 +102,21 @@ def build_services(
         if isinstance(actual_gateway, EnvS3MqttGateway)
         else os.getenv("GOODNIGHT_MQTT_DEVICE_ID", "mock-arm")
     )
-    actual_registry = registry
-    if actual_registry is None:
-        actual_registry = (
-            actual_gateway
-            if isinstance(actual_gateway, (MqttDeviceGateway, EnvS3MqttGateway))
-            else InMemoryDeviceRegistry.with_mock_device(device_id)
-        )
+    actual_registry = _build_registry(actual_gateway, registry, device_id)
+    simulated_gateway = InMemoryDeviceGateway(
+        step_delay=float(os.getenv("GOODNIGHT_SIM_STEP_DELAY", "0.25"))
+    )
+    routed_gateway = CapabilityGatewayRouter(
+        default=actual_gateway,
+        overrides={name: simulated_gateway for name in SIMULATED_TOOL_NAMES},
+    )
     events = InMemoryEventPublisher()
     actions = InMemoryActionRepository()
     tool_registry = build_default_tool_registry()
     workflow = SimpleWorkflow(
-        gateway=actual_gateway,
+        gateway=routed_gateway,
         registry=actual_registry,
-        tool_executor=ToolExecutor(registry=tool_registry, gateway=actual_gateway),
+        tool_executor=ToolExecutor(registry=tool_registry, gateway=routed_gateway),
         publisher=events,
         actions=actions,
         evaluator=SceneEvaluator(device_id=device_id),
@@ -112,6 +147,7 @@ def build_services(
         registry=actual_registry,
         tools=tool_registry,
         mock_activity=mock_activity,
+        simulated_gateway=simulated_gateway,
         sensor_automation=sensor_automation,
     )
 
@@ -166,6 +202,7 @@ def create_app(
                 with suppress(asyncio.CancelledError):
                     await automation_task
             await services.mock_activity.close()
+            await services.simulated_gateway.close()
             await services.gateway.close()
             if services.registry is not services.gateway:
                 await services.registry.close()
@@ -201,6 +238,20 @@ def create_app(
             return await services.mock_activity.start(request)
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/debug/mock-activity",
+        response_model=MockActivityStatus,
+    )
+    async def mock_activity_status() -> MockActivityStatus:
+        return services.mock_activity.status()
+
+    @application.post(
+        "/api/debug/mock-activity/stop",
+        response_model=MockActivityStopResult,
+    )
+    async def stop_mock_activity() -> MockActivityStopResult:
+        return await services.mock_activity.stop()
 
     @application.get("/api/state")
     async def get_state() -> dict[str, object]:

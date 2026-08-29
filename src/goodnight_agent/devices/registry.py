@@ -64,3 +64,31 @@ class InMemoryDeviceRegistry:
 
     async def close(self) -> None:
         return None
+
+
+@dataclass
+class OverlayDeviceRegistry:
+    """Combine a primary registry (often a live MQTT gateway) with local
+    overlay records, so simulated devices stay addressable even when the
+    primary registry only knows about real hardware."""
+
+    primary: DeviceRegistry
+    overlay: InMemoryDeviceRegistry
+
+    async def get_device(self, device_id: str) -> DeviceRecord | None:
+        record = await self.overlay.get_device(device_id)
+        if record is not None:
+            return record
+        return await self.primary.get_device(device_id)
+
+    async def list_devices(self) -> list[DeviceRecord]:
+        records = await self.primary.list_devices()
+        known = {record.device_id for record in records}
+        return records + [
+            record
+            for record in await self.overlay.list_devices()
+            if record.device_id not in known
+        ]
+
+    async def close(self) -> None:
+        await self.overlay.close()

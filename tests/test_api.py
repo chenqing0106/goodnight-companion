@@ -38,7 +38,7 @@ async def test_health_and_debug_observation() -> None:
 
     assert root.status_code == 307
     assert root.headers["location"] == "/docs"
-    assert len(devices) == 1
+    assert len(devices) == 2
     assert devices[0]["device_id"] == "mock-arm"
     assert devices[0]["availability"] == "online"
     assert devices[0]["capabilities_known"] is True
@@ -49,12 +49,21 @@ async def test_health_and_debug_observation() -> None:
         "set_rgb_indicator",
         "set_led_mode",
     ]
+    assert devices[1]["device_id"] == "sim-arm"
+    assert devices[1]["capabilities"] == [
+        "turn_on_light",
+        "pull_blanket",
+        "reset_arm",
+    ]
     assert [tool["name"] for tool in tools] == [
         "move_phone_to_dock",
         "turn_off_light",
         "stop_all_motion",
         "set_rgb_indicator",
         "set_led_mode",
+        "turn_on_light",
+        "pull_blanket",
+        "reset_arm",
     ]
     assert response.status_code == 200
     assert automation == {
