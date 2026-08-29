@@ -1,11 +1,9 @@
 # Goodnight Companion
 
-好梦鸟前端仓库。目前同时保留两部分：
+好梦鸟仓库，包含正式前后端：
 
-- 根目录的 React CDN 页面是 UI 原型，供界面与交互细节继续调整。
-- `apps/web` 是 Next.js 正式前端，负责类型安全的后端接入和后续页面迁移。
-
-两部分暂时并行，等正式 UI 融合完成后再移除旧原型。
+- `apps/web` 是 Next.js 正式前端，负责类型安全的后端接入和页面呈现。
+- `apps/agent` 是 Goodnight Agent 后端（FastAPI），由独立仓库合并而来。
 
 ## 当前开发
 
