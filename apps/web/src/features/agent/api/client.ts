@@ -4,6 +4,9 @@ import type { paths } from "./schema";
 import type {
   AgentSnapshot,
   AgentWorldState,
+  AgentEvent,
+  AutomationStatus,
+  MockActivityStartResult,
   RunStopResult,
   SensorReading,
   WorkflowResult,
@@ -23,7 +26,39 @@ function isWorldState(value: unknown): value is AgentWorldState {
     typeof state.person_motion === "string" &&
     typeof state.stable_for_seconds === "number" &&
     typeof state.phone_location === "string" &&
-    typeof state.sleep_window === "boolean"
+    typeof state.sleep_window === "boolean" &&
+    typeof state.vitals_signal_state === "string" &&
+    typeof state.vitals_valid_streak === "number" &&
+    (typeof state.vitals_reason === "string" || state.vitals_reason === null) &&
+    (typeof state.rgb_indicator_mode === "number" ||
+      state.rgb_indicator_mode === null)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isAgentEvent(value: unknown): value is AgentEvent {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.event_id === "string" &&
+    typeof value.event_type === "string" &&
+    typeof value.timestamp === "string" &&
+    (typeof value.run_id === "string" || value.run_id === null) &&
+    (typeof value.action_id === "string" || value.action_id === null) &&
+    (typeof value.command_id === "string" || value.command_id === null) &&
+    isRecord(value.payload)
+  );
+}
+
+function isAutomationStatus(value: unknown): value is AutomationStatus {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.enabled === "boolean" &&
+    (typeof value.rule === "string" || value.rule === null) &&
+    (typeof value.required_samples === "number" ||
+      value.required_samples === null)
   );
 }
 
@@ -68,6 +103,47 @@ export async function getSensorReadings(
     throw new Error("传感器响应格式不正确");
   }
   return payload;
+}
+
+export async function getRecentAgentEvents(limit = 100): Promise<AgentEvent[]> {
+  const { data, error, response } = await client.GET("/api/events/recent", {
+    params: { query: { limit } },
+  });
+  if (error || !data) {
+    throw requestError("读取 Agent 时间线", response, error);
+  }
+  if (!data.every(isAgentEvent)) {
+    throw new Error("Agent 时间线响应格式不正确");
+  }
+  return data;
+}
+
+export async function getAutomationStatus(): Promise<AutomationStatus> {
+  const { data, error, response } = await client.GET("/api/automation");
+  if (error || !isAutomationStatus(data)) {
+    throw requestError("读取自动感知状态", response, error ?? data);
+  }
+  return data;
+}
+
+export function parseAgentEvent(value: unknown): AgentEvent | null {
+  return isAgentEvent(value) ? value : null;
+}
+
+export async function startMockActivity(): Promise<MockActivityStartResult> {
+  const { data, error, response } = await client.POST(
+    "/api/debug/mock-activity",
+    {
+      body: {
+        scenario: "temperature_cooling",
+        step_delay_ms: 2200,
+      },
+    },
+  );
+  if (error || !data) {
+    throw requestError("启动连续思考演示", response, error);
+  }
+  return data;
 }
 
 export async function getAgentSnapshot(): Promise<AgentSnapshot> {
@@ -129,6 +205,29 @@ export async function startPickupDemo(): Promise<WorkflowResult> {
 
   if (error || !data) {
     throw requestError("启动场景 1", response, error);
+  }
+  return data;
+}
+
+export async function restoreNormalTemperatureState(): Promise<WorkflowResult> {
+  const { data, error, response } = await client.POST(
+    "/api/debug/observations",
+    {
+      body: {
+        source: "nextjs_temperature_followup",
+        confidence: 1,
+        facts: {
+          vitals_signal_state: "stable",
+          vitals_valid_streak: 3,
+          vitals_reason: "temperature_demo_restore_normal",
+          rgb_indicator_mode: 3,
+        },
+      },
+    },
+  );
+
+  if (error || !data) {
+    throw requestError("恢复正常温度状态", response, error);
   }
   return data;
 }

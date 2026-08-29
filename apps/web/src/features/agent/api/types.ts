@@ -5,16 +5,11 @@ export type AgentActionStatus = components["schemas"]["ActionStatus"];
 export type AgentDevice = components["schemas"]["DeviceRecord"];
 export type WorkflowResult = components["schemas"]["WorkflowResult"];
 export type RunStopResult = components["schemas"]["RunStopResult"];
+export type MockActivityStartResult =
+  components["schemas"]["MockActivityStartResult"];
 
-export type SensorName =
-  | "temp"
-  | "humidity"
-  | "light"
-  | "heart_rate"
-  | "spo2";
+export type SensorName = components["schemas"]["SensorReading"]["sensor"];
 
-// This endpoint exists in the backend but is not present in the checked-in
-// generated OpenAPI declaration yet.
 export interface SensorReading {
   device_id: string;
   sensor: SensorName;
@@ -39,6 +34,10 @@ export interface AgentWorldState {
   phone_being_used: boolean | null;
   light_on: boolean | null;
   sleep_window: boolean;
+  vitals_signal_state: string;
+  vitals_valid_streak: number;
+  vitals_reason: string | null;
+  rgb_indicator_mode: number | null;
   device_states: Record<string, string>;
   device_capabilities: Record<string, string[]>;
   active_action_id: string | null;
@@ -54,6 +53,12 @@ export interface AgentEvent {
   action_id: string | null;
   command_id: string | null;
   payload: Record<string, unknown>;
+}
+
+export interface AutomationStatus {
+  enabled: boolean;
+  rule: string | null;
+  required_samples: number | null;
 }
 
 export interface AgentSnapshot {

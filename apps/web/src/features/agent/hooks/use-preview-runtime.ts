@@ -63,6 +63,10 @@ function createPreviewSnapshot(
       phone_being_used: false,
       light_on: COMPANION_CONFIG.preview.lightOn,
       sleep_window: true,
+      vitals_signal_state: "stable",
+      vitals_valid_streak: 3,
+      vitals_reason: "heart_rate_and_spo2_valid",
+      rgb_indicator_mode: 2,
       device_states: {
         床头相机: "在线",
         六轴机械臂: "可执行",
@@ -89,9 +93,17 @@ function createInitialState(): AgentRuntimeState {
     connection: "connected",
     snapshot: createPreviewSnapshot(COMPANION_CONFIG.preview.actionStatus),
     latestEvent: null,
+    events: [],
+    automation: {
+      enabled: true,
+      rule: "vitals_signal_indicator",
+      required_samples: 3,
+    },
+    traceError: null,
     progress: COMPANION_CONFIG.preview.progress,
     error: null,
     isStarting: false,
+    isStartingActivity: false,
     isStopping: false,
   };
 }
@@ -138,6 +150,14 @@ export function usePreviewRuntime(): CompanionRuntime {
       isStopping: false,
     }));
     showNotice("已开始执行，随时可以停止");
+  }, [showNotice]);
+
+  const runMockActivityDemo = useCallback(async () => {
+    showNotice("连续思考演示需要连接 Agent 后端");
+  }, [showNotice]);
+
+  const restoreNormalState = useCallback(async () => {
+    showNotice("恢复正常状态需要连接 Agent 后端");
   }, [showNotice]);
 
   const stopCurrentRun = useCallback(async () => {
@@ -213,6 +233,8 @@ export function usePreviewRuntime(): CompanionRuntime {
     phase: mapActionPhase(currentAction),
     refresh,
     runPickupDemo,
+    runMockActivityDemo,
+    restoreNormalState,
     stopCurrentRun,
     dataMode: "preview",
     memory: {

@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debug/mock-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Mock Activity */
+        post: operations["start_mock_activity_api_debug_mock_activity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/state": {
         parameters: {
             query?: never;
@@ -72,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/devices/{device_id}/sensors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sensor Readings */
+        get: operations["list_sensor_readings_api_devices__device_id__sensors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools": {
         parameters: {
             query?: never;
@@ -81,6 +115,23 @@ export interface paths {
         };
         /** List Tools */
         get: operations["list_tools_api_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Automation Status */
+        get: operations["get_automation_status_api_automation_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -191,6 +242,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Events */
+        get: operations["recent_events_api_events_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -290,10 +358,63 @@ export interface components {
              */
             updated_at?: string;
         };
+        /** DomainEvent */
+        DomainEvent: {
+            /** Event Id */
+            event_id?: string;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp?: string;
+            /** Run Id */
+            run_id?: string | null;
+            /** Action Id */
+            action_id?: string | null;
+            /** Command Id */
+            command_id?: string | null;
+            /** Payload */
+            payload?: {
+                [key: string]: unknown;
+            };
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** MockActivityRequest */
+        MockActivityRequest: {
+            /**
+             * Scenario
+             * @default temperature_cooling
+             * @constant
+             */
+            scenario: "temperature_cooling";
+            /**
+             * Step Delay Ms
+             * @default 2200
+             */
+            step_delay_ms: number;
+        };
+        /** MockActivityStartResult */
+        MockActivityStartResult: {
+            /** Run Id */
+            run_id: string;
+            /** Monitor Id */
+            monitor_id: string;
+            /**
+             * Status
+             * @default running
+             * @constant
+             */
+            status: "running";
+            /** Total Steps */
+            total_steps: number;
+            /** Step Delay Ms */
+            step_delay_ms: number;
         };
         /** Observation */
         Observation: {
@@ -324,6 +445,31 @@ export interface components {
             status: "stop_requested" | "stopped" | "completed";
             /** Actions */
             actions?: components["schemas"]["Action"][];
+        };
+        /** SensorReading */
+        SensorReading: {
+            /** Device Id */
+            device_id: string;
+            /**
+             * Sensor
+             * @enum {string}
+             */
+            sensor: "temp" | "humidity" | "light" | "heart_rate" | "spo2";
+            /** Value */
+            value: number;
+            /** Unit */
+            unit: string;
+            /** Valid */
+            valid: boolean;
+            /** Ts Ms */
+            ts_ms: number;
+            /** Error */
+            error?: string | null;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at?: string;
         };
         /** ToolDefinition */
         ToolDefinition: {
@@ -429,6 +575,39 @@ export interface operations {
             };
         };
     };
+    start_mock_activity_api_debug_mock_activity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MockActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockActivityStartResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_state_api_state_get: {
         parameters: {
             query?: never;
@@ -471,6 +650,37 @@ export interface operations {
             };
         };
     };
+    list_sensor_readings_api_devices__device_id__sensors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SensorReading"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tools_api_tools_get: {
         parameters: {
             query?: never;
@@ -487,6 +697,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ToolDefinition"][];
+                };
+            };
+        };
+    };
+    get_automation_status_api_automation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -651,6 +883,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    recent_events_api_events_recent_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                run_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainEvent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -9,7 +9,7 @@
 
 ```bash
 cd /Users/qingchen/Code/goodnight-agent
-uv run uvicorn goodnight_agent.api.app:app --reload
+uv run uvicorn goodnight_agent.api.app:app --reload --env-file .env.hardware
 ```
 
 再启动前端：
@@ -19,9 +19,14 @@ cd /Users/qingchen/Code/goodnight-companion/apps/web
 pnpm dev
 ```
 
-打开 <http://127.0.0.1:3000>。普通 HTTP 请求通过 Next.js rewrite 把同源的
+打开 <http://localhost:3000>。当前本机的 `127.0.0.1:3000` 可能仍由旧版 UI
+预览服务占用，不要用它判断 Next.js 联调结果。普通 HTTP 请求通过 Next.js rewrite 把同源的
 `/api/*` 转发到 FastAPI；SSE 通过 `/agent-events` 流式转发，因此浏览器不需要
 直接跨域访问后端。
+
+“今晚”页面会每秒读取传感器状态，并在启动时恢复最近 100 条 Agent 事件；之后
+通过 SSE 实时追加。达到连续样本条件后，页面会依次显示条件满足、安全检查、工具
+调用和硬件结果。设备页面使用真实后端数据，不再显示预览设备。
 
 如需修改后端地址，复制 `.env.example` 为 `.env.local` 并调整
 `AGENT_BACKEND_URL`。

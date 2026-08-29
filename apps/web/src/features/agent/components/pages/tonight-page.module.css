@@ -163,6 +163,28 @@
   font-weight: 800;
 }
 
+.sensorBadges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.automationBadge {
+  padding: 6px 8px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.automationBadgeOff {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+}
+
 .sensorSummaryError {
   color: var(--warn);
   background: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -217,6 +239,62 @@
   text-overflow: ellipsis;
 }
 
+.activityQuiet {
+  --activity-color: #9c9b94;
+}
+
+.activityActive {
+  --activity-color: var(--accent);
+}
+
+.activitySuccess {
+  --activity-color: var(--safe);
+}
+
+.activityFailed {
+  --activity-color: var(--warn);
+}
+
+.signalStatus {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 10px 11px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--activity-color) 7%, var(--paper));
+}
+
+.signalStatus > i,
+.activityStep > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--activity-color);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--activity-color) 11%, transparent);
+}
+
+.signalStatus strong,
+.signalStatus span {
+  display: block;
+}
+
+.signalStatus strong {
+  font-size: 10px;
+}
+
+.signalStatus span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.signalStatus b {
+  color: var(--activity-color);
+  font-size: 10px;
+}
+
 .sensorItem strong {
   margin-top: 7px;
   white-space: nowrap;
@@ -243,6 +321,10 @@
   margin: 24px 2px 12px;
 }
 
+.sectionLabel > div {
+  min-width: 0;
+}
+
 .sectionLabel h2 {
   margin: 0;
   font-size: 15px;
@@ -250,8 +332,33 @@
 }
 
 .sectionLabel span {
+  display: block;
+  margin-top: 3px;
   color: var(--muted);
   font-size: 10px;
+}
+
+.activityDemoButton {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 999px;
+  padding: 0 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.activityDemoButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.activityDemoButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .timeline {
@@ -307,11 +414,184 @@
 }
 
 .timelineCard,
+.activityCard,
 .progressCard {
   padding: 14px 15px;
   border: 1px solid rgba(36, 37, 34, 0.08);
   border-radius: 20px;
   background: rgba(248, 246, 241, 0.78);
+}
+
+.activityTimelineCard {
+  animation: timeline-step-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.activityTimelineCardActive {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: color-mix(in srgb, var(--accent) 5%, var(--card));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.activityResultCard {
+  color: #fff8f3;
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.activityResultCard .timelineMeta,
+.activityResultCard .timelineText {
+  color: rgba(255, 248, 243, 0.76);
+}
+
+.activityResultCard .timelineEvidence span {
+  color: #fff8f3;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.activityFailedCard {
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: color-mix(in srgb, var(--warn) 7%, var(--card));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--warn) 9%, transparent);
+}
+
+.activityFailedCard .timelineMeta {
+  color: var(--warn);
+}
+
+.activityFailedCard .resultActions {
+  border-top-color: var(--line);
+}
+
+.activityFailedCard .resultPrimaryAction {
+  border-color: var(--warn);
+  color: white;
+  background: var(--warn);
+}
+
+.activityFailedCard .resultSecondaryAction {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.timelineEvidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.timelineEvidence span {
+  padding: 4px 6px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted));
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 7px;
+}
+
+.activityTimelineProgress {
+  display: block;
+  margin-top: 9px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.activityTimelineEmpty {
+  border-style: dashed;
+}
+
+.resultActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.resultPrimaryAction,
+.resultSecondaryAction {
+  min-height: 38px;
+  border-radius: 12px;
+  padding: 0 8px;
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.resultPrimaryAction {
+  border: 1px solid #fff8f3;
+  color: var(--accent);
+  background: #fff8f3;
+}
+
+.resultSecondaryAction {
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: #fff8f3;
+  background: transparent;
+}
+
+.resultPrimaryAction:hover:not(:disabled),
+.resultSecondaryAction:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.resultPrimaryAction:disabled,
+.resultSecondaryAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.activityCard {
+  padding: 15px;
+  border: 1px solid rgba(36, 37, 34, 0.08);
+  border-radius: 20px;
+  background: rgba(248, 246, 241, 0.78);
+}
+
+.timelineDot.activityQuiet,
+.timelineDot.activityActive,
+.timelineDot.activitySuccess,
+.timelineDot.activityFailed {
+  border-color: var(--activity-color);
+  background: var(--activity-color);
+}
+
+.activitySteps {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.activityStep {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.activityStep > i {
+  margin-top: 3px;
+}
+
+.activityStep strong,
+.activityStep span {
+  display: block;
+}
+
+.activityStep strong {
+  font-size: 10px;
+}
+
+.activityStep span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .timelineMeta,
@@ -522,6 +802,9 @@
 }
 
 .errorCard button:focus-visible,
+.activityDemoButton:focus-visible,
+.resultPrimaryAction:focus-visible,
+.resultSecondaryAction:focus-visible,
 .evidenceToggle:focus-visible,
 .stopTextButton:focus-visible,
 .primaryButton:focus-visible,
@@ -549,6 +832,17 @@
   }
 }
 
+@keyframes timeline-step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 350px) {
   .companionCopy {
     width: 58%;
@@ -572,7 +866,8 @@
   }
 
   .robotExecuting .robotImage,
-  .progressIndeterminate {
+  .progressIndeterminate,
+  .activityTimelineCard {
     animation: none;
   }
 }

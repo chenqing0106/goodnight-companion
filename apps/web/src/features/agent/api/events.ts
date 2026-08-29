@@ -1,4 +1,5 @@
 import type { AgentEvent } from "./types";
+import { parseAgentEvent } from "./client";
 
 const EVENT_TYPES = [
   "observation.updated",
@@ -20,6 +21,11 @@ const EVENT_TYPES = [
   "tool.called",
   "device.registry_synced",
   "device.registry_failed",
+  "automation.started",
+  "automation.connection_failed",
+  "condition.evaluated",
+  "condition.satisfied",
+  "activity.step",
 ] as const;
 
 interface EventCallbacks {
@@ -33,7 +39,9 @@ export function subscribeAgentEvents(callbacks: EventCallbacks) {
   const handlers = EVENT_TYPES.map((eventType) => {
     const handler = (message: MessageEvent<string>) => {
       try {
-        callbacks.onEvent(JSON.parse(message.data) as AgentEvent);
+        const event = parseAgentEvent(JSON.parse(message.data));
+        if (!event) throw new Error("invalid Agent event");
+        callbacks.onEvent(event);
       } catch {
         callbacks.onError();
       }

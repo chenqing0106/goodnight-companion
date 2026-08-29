@@ -104,6 +104,10 @@ export function DevicesPage({
               : "未知");
         const isUnavailable =
           device.availability !== "online" || stateLabel === "未开放";
+        const isEnvS3 = normalizedId.includes("env-s3");
+        const rgbMode = state.snapshot?.world.rgb_indicator_mode;
+        const rgbState =
+          rgbMode === 2 ? "绿色" : rgbMode === 0 ? "关闭" : "尚未同步";
         return (
           <section className={styles.panelCard} key={device.device_id}>
             <div className={styles.listRow}>
@@ -149,6 +153,7 @@ export function DevicesPage({
                   : "仍在等待同步"}
                 。
                 {device.updated_at && <span> 最近更新时间已记录。</span>}
+                {isEnvS3 && <span> RGB 指示灯：{rgbState}。</span>}
               </div>
             )}
           </section>
